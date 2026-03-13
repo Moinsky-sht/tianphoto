@@ -152,6 +152,8 @@
 </div>
 ```
 
+资讯简报、早报、新闻汇总这类页面通常不需要它，优先靠留白和标题层级完成转场。
+
 ### 10. wx-inline-graphic / wx-badge-art（图形/印章）
 
 ```html
@@ -289,7 +291,12 @@
 
 ### 分隔线 SVG（用于 wx-divider-ornament）
 
-#### soft-stars · 星点分隔（暖色 / 杂志 / 轻盈主题优先）
+#### editorial-notch · 极简折点（克制 / 编辑 / 轻资讯主题优先）
+```svg
+<svg viewBox="0 0 220 20" fill="none" aria-hidden="true"><path d="M18 10h78M124 10h78" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".26"/><path d="M110 5.5 114.5 10 110 14.5 105.5 10Z" fill="currentColor" opacity=".5"/></svg>
+```
+
+#### soft-stars · 星点分隔（暖色 / 轻盈主题优先）
 ```svg
 <svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/><path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/></svg>
 ```
@@ -338,7 +345,7 @@
 1. **字号已为手机优化**：正文 17px、标题 28-38px，无需手动调整
 2. **每段不超过 4 行**：手机上长段会形成文字墙，应拆分
 3. **列表优于长段**：要点用 ul/li 比 p 更易读
-4. **适度使用分隔线**：一篇文章 1-3 个 divider 即可
+4. **适度使用分隔线**：一篇文章 0-2 个 divider 即可；资讯页默认尽量不用
 5. **图标选择**：根据章节内容从内置 SVG 库中选最合适的，或自行设计 SVG（使用 `currentColor`）
 6. **图片占位**：用 `wx-image-drop-zone` 标记用户可后续插图的位置
 7. **禁止 Emoji**：不要在任何地方使用 Emoji 字符（🚀✨💡📊❌✅ 等），所有图标必须用 SVG

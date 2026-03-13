@@ -128,6 +128,7 @@ function sanitizeArticleFragment(htmlContent) {
 }
 
 const DIVIDER_VARIANT_SVGS = {
+  "editorial-notch": '<svg viewBox="0 0 220 20" fill="none" aria-hidden="true"><path d="M18 10h78M124 10h78" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".26"/><path d="M110 5.5 114.5 10 110 14.5 105.5 10Z" fill="currentColor" opacity=".5"/></svg>',
   "soft-stars": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/><path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/></svg>',
   "chevron-band": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h66l12-8 12 8 12-8 12 8h90" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   "fold-divider": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h78l16-8 16 8 16-8 16 8h62" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" opacity=".76"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>',
@@ -139,22 +140,34 @@ function getArticleSkin(htmlContent) {
   return match ? match[3] : null;
 }
 
-function pickPreferredDividerVariant(htmlContent, preset) {
+function pickDividerStrategy(htmlContent, preset) {
   const skin = getArticleSkin(htmlContent);
   const presetId = preset?.id || "";
+  const isEditorialNewsPreset = /(journal|brief|report|bulletin|digest|briefing)/i.test(presetId);
+
+  if (["editorial", "magazine"].includes(skin) || isEditorialNewsPreset) {
+    return { mode: "remove", reason: "editorial-news" };
+  }
 
   if (["tech", "neon", "mono-dark"].includes(skin) || /(ops|signal|terminal|neon|cobalt)/i.test(presetId)) {
-    return "chevron-band";
+    return { mode: "replace", variant: "chevron-band" };
   }
 
   if (["brutal", "luxe-dark"].includes(skin)) {
-    return "fold-divider";
+    return { mode: "replace", variant: "fold-divider" };
   }
 
-  return "soft-stars";
+  if (["glass", "luxe", "mono"].includes(skin)) {
+    return { mode: "replace", variant: "editorial-notch" };
+  }
+
+  return { mode: "replace", variant: "soft-stars" };
 }
 
 function detectDividerVariant(svgContent) {
+  if (/M18 10h78M124 10h78/.test(svgContent) && /M110 5\.5 114\.5 10 110 14\.5/.test(svgContent)) {
+    return "editorial-notch";
+  }
   if (/M4 14h70M146 14h70/.test(svgContent) && /circle cx="110" cy="14" r="10"/.test(svgContent)) {
     return "line-orbit";
   }
@@ -176,17 +189,26 @@ function setDividerVariantAttr(attrs, variant) {
 }
 
 function normalizeDividerOrnaments(htmlContent, preset) {
-  const preferredVariant = pickPreferredDividerVariant(htmlContent, preset);
+  const strategy = pickDividerStrategy(htmlContent, preset);
   let normalizedCount = 0;
   let replacedCount = 0;
+  let removedCount = 0;
 
   const html = htmlContent.replace(
     /<div([^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\2[^>]*)>([\s\S]*?)<\/div>/gi,
     (match, attrs, _quote, innerHtml) => {
       normalizedCount++;
+      if (strategy.mode === "remove") {
+        removedCount++;
+        return "";
+      }
+
+      const preferredVariant = strategy.variant;
       const hasSvg = /<svg\b/i.test(innerHtml);
       const currentVariant = hasSvg ? detectDividerVariant(innerHtml) : null;
-      const shouldReplace = !hasSvg || currentVariant === "line-orbit";
+      const shouldReplace = !hasSvg
+        || currentVariant === "line-orbit"
+        || (currentVariant !== null && currentVariant !== preferredVariant);
       const nextVariant = shouldReplace ? preferredVariant : currentVariant;
       const nextInner = shouldReplace ? DIVIDER_VARIANT_SVGS[preferredVariant] : innerHtml.trim();
 
@@ -202,7 +224,8 @@ function normalizeDividerOrnaments(htmlContent, preset) {
     html,
     normalizedCount,
     replacedCount,
-    preferredVariant,
+    removedCount,
+    strategy,
   };
 }
 
@@ -270,6 +293,7 @@ function validateDecorativeGraphics(htmlContent) {
 
 function validateDividerOrnaments(htmlContent) {
   const dividerBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
+  const skin = getArticleSkin(htmlContent);
 
   if (dividerBlocks.length > 2) {
     throw new Error(
@@ -282,7 +306,14 @@ function validateDividerOrnaments(htmlContent) {
   if (orbitCount > 0) {
     throw new Error(
       "Divider guard: the generic line-orbit divider is deprecated. " +
-      "Use soft-stars / chevron-band / fold-divider, or omit the divider entirely."
+      "Use editorial-notch / soft-stars / chevron-band / fold-divider, or omit the divider entirely."
+    );
+  }
+
+  if (skin === "editorial" && dividerBlocks.length > 0) {
+    throw new Error(
+      "Divider guard: editorial/news layouts should not rely on decorative dividers. " +
+      "Use card spacing, headings, and section rhythm instead."
     );
   }
 }
@@ -573,10 +604,15 @@ async function main() {
   if (hadOuterDocument) {
     console.log("Sanitized input: extracted the <article> fragment from a full HTML document.");
   }
-  if (dividerNormalization.replacedCount > 0) {
+  if (dividerNormalization.removedCount > 0) {
+    console.log(
+      `Divider cleanup: removed ${dividerNormalization.removedCount} decorative divider(s) ` +
+      `for ${dividerNormalization.strategy.reason || "the current preset"}.`
+    );
+  } else if (dividerNormalization.replacedCount > 0) {
     console.log(
       `Divider cleanup: replaced ${dividerNormalization.replacedCount} generic divider(s) ` +
-      `with ${dividerNormalization.preferredVariant}.`
+      `with ${dividerNormalization.strategy.variant}.`
     );
   }
 

@@ -162,6 +162,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - **长文章就应该长** — 不要害怕生成很长的 HTML，一篇 5000 字的学术文章就应该输出 5000 字的排版页面
 - 结构策略：按原文章节逻辑拆分为多个 `wx-section-card`，每个 card 聚焦一个子主题
 - 只有在两个主段落之间确实需要“换气”时才使用 `wx-divider-ornament`，整篇控制在 0-2 个
+- 对早报、资讯汇总、新闻简报、复试信息流页面，默认不要用装饰分割线，优先靠留白、标题层级和 section 节奏分层
 - 适当将定义/关键概念提取为 `wx-quote-card` 突出显示
 - 将数据/对比关系转化为 `wx-metric-grid` / `wx-compare-grid`（但文字说明仍然保留）
 
@@ -352,10 +353,10 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 #### 分隔线模板（章节之间使用）
 
 ```html
-<div class="wx-divider-ornament" data-divider-variant="soft-stars">
-  <svg viewBox="0 0 220 28" fill="none" aria-hidden="true">
-    <path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
-    <path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/>
+<div class="wx-divider-ornament" data-divider-variant="editorial-notch">
+  <svg viewBox="0 0 220 20" fill="none" aria-hidden="true">
+    <path d="M18 10h78M124 10h78" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".26"/>
+    <path d="M110 5.5 114.5 10 110 14.5 105.5 10Z" fill="currentColor" opacity=".5"/>
   </svg>
 </div>
 ```
@@ -381,7 +382,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - [ ] 每个 `wx-section-card` 都有 `wx-section-top` > `wx-section-icon`（含 SVG）+ `wx-section-heading`
 - [ ] 每个 `wx-section-card` 的正文都包裹在 `wx-section-body` 中
 - [ ] 没有任何 Emoji 字符
-- [ ] 如使用 `wx-divider-ornament`，整篇最多 1-2 个，且必须与主题匹配，不能反复贴通用圆环款
+- [ ] 如使用 `wx-divider-ornament`，整篇最多 1-2 个，且必须与主题匹配；早报/资讯/新闻类页面默认应为 0 个
 - [ ] h1 有 inline style 指定 `font-size`（至少 28px）和 `color`
 - [ ] h2 有 inline style 指定 `font-size`（至少 20px）和 `color`
 - [ ] 单个 section-card 内容不超过 300 字（长内容拆分为多个 card）
@@ -432,14 +433,15 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 3. **SVG 装饰是视觉灵魂** — 每篇文章至少包含：
    - 1 个 `wx-hero-mesh` SVG 背景（渐变 + 几何图形，不少于 3 个图形元素）
    - 每个 `wx-section-card` 必须有 `wx-section-icon`（从内置 SVG 库中选择，或自行设计）
-   - 如确实需要章节转场，可使用 0-2 个 `wx-divider-ornament`，并按主题选择 `soft-stars` / `chevron-band` / `fold-divider`
+   - 如确实需要章节转场，可使用 0-2 个 `wx-divider-ornament`，并按主题选择 `editorial-notch` / `soft-stars` / `chevron-band` / `fold-divider`
    - 适当使用 `wx-inline-graphic` 或 `wx-badge-art` 增加视觉丰富度
 
    **重要补充**：
    - `wx-inline-graphic` / `wx-badge-art` 是可选项，不是必须项
    - `wx-divider-ornament` 也是可选项，不是“每个大章节都要贴一个”
+   - 对早报、资讯简报、新闻汇总、理论梳理这类信息密集页面，默认不放分割线；章节切换靠卡片留白和标题变化完成
    - 如果做不出有辨识度、可见度足够的 SVG，宁可不用，也不要生成一个像空白玻璃板的“假装饰”
-   - 禁止反复使用通用的“横线 + 圆环”分隔线；暖色/杂志风优先 `soft-stars`，科技风优先 `chevron-band`，厚重风格可用 `fold-divider`
+   - 禁止反复使用通用的“横线 + 圆环”分隔线；克制型页面优先 `editorial-notch` 或直接省略，科技风优先 `chevron-band`，厚重风格可用 `fold-divider`
    - 在亮色主题中，禁止使用纯白或近白的低对比 SVG 作为唯一视觉内容
    - 优先使用 `currentColor`、`var(--accent-strong)`、`var(--accent)`、`var(--text-main)` 等可见颜色
 
