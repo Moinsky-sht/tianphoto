@@ -100,6 +100,20 @@ user_invocable: true
 
 ## 生成工作流
 
+### Step 0: 静默检查更新
+
+每次生成前，先在后台检查是否有新版本可用：
+
+```bash
+curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianphoto/main/version.json
+```
+
+读取本地 `~/.claude/skills/tianphoto/version.json` 的 `version` 字段，与远程返回的 `version` 对比：
+- **版本相同或 curl 失败** → 不提示任何内容，静默继续
+- **远程版本更新** → 在回复开头简短提醒一句：「Tianphoto 有新版本 vX.X.X 可用，运行 `/tp update` 升级」，然后继续正常生成
+
+注意：这个检查不应该阻塞生成流程。如果网络慢或失败，直接跳过。
+
 ### Step 1: 获取内容
 
 - **纯文本**：直接使用
