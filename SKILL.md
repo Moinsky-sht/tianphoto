@@ -132,10 +132,62 @@ user_invocable: true
 - 列表优于长段落
 - 适度留白
 
-**创意自由度（鼓励发挥）：**
+**绝对禁止 Emoji（最高优先级规则）：**
+
+> **在生成的 HTML 中，任何位置都不允许出现 Emoji 字符。** 这包括但不限于：
+> - 标题前后的 Emoji 装饰（如 ✨🚀💡📊🎯❤️ 等）
+> - 列表项前的 Emoji 图标
+> - 卡片标题中的 Emoji
+> - `wx-card-caption` 中的 Emoji
+> - `wx-eyebrow` 中的 Emoji
+> - 正文中作为装饰使用的 Emoji
+>
+> **所有图标、装饰必须使用 SVG 绘制。** 参考 `references/html-components.md` 中的内置 SVG 库，或根据内容主题自行设计 SVG。
+>
+> 错误示例：`<h2>🚀 产品亮点</h2>` `<li>✅ 支持多端</li>` `<span class="wx-card-caption">📌 核心要点</span>`
+>
+> 正确示例：`<h2>产品亮点</h2>`（配合 `wx-section-icon` 中的 SVG 图标）
+
+**审美设计规范（确保高品质输出）：**
+
+以下规范旨在确保即使模型能力较低，也能生成审美高级的 HTML 页面：
+
+1. **配色纪律** — 严格使用预设 CSS 变量（`--accent`, `--accent-strong`, `--accent-soft`, `--text-main`, `--text-muted` 等），不要自行发明颜色值。预设变量经过专业设计师调色，保证色彩和谐。唯一的例外是在 `<style>` 块中使用 `var()` 引用这些变量做渐变/阴影。
+
+2. **标题排版** — h1 必须有视觉冲击力，建议：
+   - font-size 至少 28px，推荐 32-42px
+   - 使用 `color: var(--accent-strong)` 或 `-webkit-background-clip: text` 渐变
+   - 可搭配 `text-shadow` 增加层次感
+   - h2 章节标题 20-26px，`color: var(--accent-strong)`，`font-weight: 800`
+
+3. **SVG 装饰是视觉灵魂** — 每篇文章至少包含：
+   - 1 个 `wx-hero-mesh` SVG 背景（渐变 + 几何图形，不少于 3 个图形元素）
+   - 每个 `wx-section-card` 必须有 `wx-section-icon`（从内置 SVG 库中选择，或自行设计）
+   - 1-2 个 `wx-divider-ornament` 分隔线装饰（用内置分隔线 SVG）
+   - 适当使用 `wx-inline-graphic` 或 `wx-badge-art` 增加视觉丰富度
+
+4. **留白与节奏** — 组件之间通过 `wx-article-shell` 的 `gap: 22px` 自然留白。不要给组件加额外的 `margin-top`/`margin-bottom` 来"撑开"空间，也不要用空的 `<div>` 占位。
+
+5. **卡片层次** — 利用 CSS 已定义的 `border-radius`、`border`、`box-shadow` 创造自然的卡片层次感。不要在 inline style 中覆盖这些属性，除非有明确的设计意图。
+
+6. **Hero 区域** — 是整篇文章的视觉核心：
+   - 必须有 `wx-hero-mesh` SVG 背景（覆盖 hero 上方 160px 区域）
+   - SVG 中至少包含：一个线性渐变矩形 + 2-3 个径向渐变圆形（使用 `--hero-grad-a`, `--hero-grad-b`, `--hero-fade`）
+   - 标题要大、要有存在感
+   - `wx-eyebrow` 标签简短有力（2-4 个中文字或英文短词）
+
+7. **文字密度** — 移动端阅读的关键是"扫读"：
+   - 段落不超过 80 字（约 3-4 行）
+   - 要点用 `<ul>` 列表，每个 `<li>` 中用 `<strong>` 加粗关键词
+   - 长内容分拆为多个 `wx-section-card`
+   - 数字用 `wx-metric-grid` 展示，不要写在段落里
+
+8. **字体使用** — 只使用预设的 `var(--heading-font)` 和 `var(--body-font)`，不要引入外部字体或手动指定 `font-family`（除非是 `system-ui` 作为 fallback）。
+
+**创意自由度（鼓励发挥，但在规范框架内）：**
 
 - **标题**：CSS 只设了 font-family 和 line-height，**h1/h2 的 font-size、颜色、装饰效果完全自由**。鼓励使用 inline style 或 `<style>` 块设计大号标题、渐变色文字、文字阴影等
-- **SVG**：鼓励**根据内容主题自行设计 SVG 图形**——几何图案、抽象装饰、图标插画等。不要只用内置 SVG，发挥创造力
+- **SVG**：鼓励**根据内容主题自行设计 SVG 图形**——几何图案、抽象装饰、图标插画等。不要只用内置 SVG，发挥创造力。自行设计的 SVG 应使用 `currentColor` 或 CSS 变量，确保与主题配色一致
 - **`<style>` 块**：可以在 `<article>` 开头加 `<style>` 块设置该文章独有的样式（动画、渐变、伪元素装饰等）
 - **Hero 创意**：不限于"眉标+标题+描述"模板。可以做全幅渐变、大字排版、SVG 背景、几何构图、任何创意布局
 - **整体风格**：每篇文章都应该有独特的视觉个性，展现设计品味
