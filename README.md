@@ -19,6 +19,8 @@ git clone https://github.com/Moinsky-sht/tianphoto.git ~/.claude/skills/tianphot
 - `/tp style list` — 查看 32 套预设风格
 - `/tp style <preset-id>` — 指定风格（如 `aurora-glass`）
 - `/tp logo on` — 启用品牌 Logo
+- `/tp version` — 检查版本和更新
+- `/tp update` — 升级到最新版本
 - `/tp help` — 查看帮助
 
 或者直接用自然语言：
@@ -32,7 +34,7 @@ git clone https://github.com/Moinsky-sht/tianphoto.git ~/.claude/skills/tianphot
 - **网页优先，图片可选** — 生成自包含可编辑 HTML 网页
 - **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片
 - **一键导出** — 按卡片智能切片导出 PNG（所见即所得）
-- **自动封面** — 导出时自动生成公众号封面图（2.35:1 头条 + 1:1 小图）
+- **自动封面** — 导出时自动生成公众号 2.35:1 头条封面图
 - **32 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
 - **Logo 支持** — 在 `logos/` 目录放入 `brand-logo.png` 即可启用品牌横幅
 
@@ -54,13 +56,14 @@ git clone https://github.com/Moinsky-sht/tianphoto.git ~/.claude/skills/tianphot
 tianphoto/
 ├── SKILL.md           # Skill 定义（Claude Code 入口）
 ├── README.md          # 本文件
+├── version.json       # 版本信息（用于 /tp version 和 /tp update）
 ├── assets/
 │   ├── article-theme.css   # 文章主题样式
 │   ├── editor.js           # 内置编辑器 + 导出引擎
 │   ├── html2canvas.min.js  # 渲染依赖
 │   └── presets.json        # 32 套预设配置
 ├── scripts/
-│   ├── render-image.js     # 渲染脚本
+│   ├── render-image.js     # 渲染脚本（PNG 导出需 puppeteer-core）
 │   └── fetch-content.js    # URL 内容抓取
 ├── references/
 │   ├── html-components.md  # HTML 组件文档
@@ -72,7 +75,18 @@ tianphoto/
 ## 依赖
 
 - Node.js（随 Claude Code 环境自带）
-- 无需额外 npm install
+- **PNG 导出（可选）**：`npm install -g puppeteer-core`（仅 4MB，使用系统 Chrome，无需下载浏览器）
+- 默认的 HTML 网页 + 浏览器内导出无需任何额外依赖
+
+## 更新
+
+```bash
+# 方式 1：使用内置指令
+/tp update
+
+# 方式 2：手动更新
+cd ~/.claude/skills/tianphoto && git pull
+```
 
 ## License
 

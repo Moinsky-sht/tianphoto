@@ -514,7 +514,7 @@
 
     // ── 文字区 (左侧主体) ──
     var textTop = hasLogo ? 92 : 0;
-    var textRight = 300; // 给 badge 留空间
+    var textRight = 240; // 给右侧装饰留空间
     var left = document.createElement('div');
     left.style.cssText = 'position:absolute;left:52px;top:'+textTop+'px;right:'+textRight+'px;height:'+(h-textTop)+'px;display:flex;flex-direction:column;justify-content:center;z-index:2;';
 
@@ -600,7 +600,7 @@
       var scale = 2;
       var h = Math.round(COVER_W / 2.35);
 
-      // 1) 完整 2.35:1 宽封面
+      // 2.35:1 宽封面（公众号头条封面）
       covers.push({
         dataUrl: canvas.toDataURL('image/png', 1),
         filename: '\u5C01\u9762-2.35x1.png',
@@ -608,28 +608,6 @@
         height: Math.round(canvas.height / scale),
         type: 'cover',
         label: '\u5934\u6761\u5C01\u9762',
-      });
-
-      // 2) 右上角 1:1 裁切（以 badge 为中心取正方形）
-      var badgeCx = (COVER_W - 128) * scale;
-      var badgeCy = 128 * scale;
-      var cropSize = Math.round(h * 0.62 * scale); // ~285px 见方 * scale
-      var cropX = Math.max(0, Math.min(badgeCx - cropSize / 2, canvas.width - cropSize));
-      var cropY = Math.max(0, Math.min(badgeCy - cropSize / 2, canvas.height - cropSize));
-
-      var sqCanvas = document.createElement('canvas');
-      sqCanvas.width = cropSize;
-      sqCanvas.height = cropSize;
-      var sqCtx = sqCanvas.getContext('2d');
-      sqCtx.drawImage(canvas, cropX, cropY, cropSize, cropSize, 0, 0, cropSize, cropSize);
-
-      covers.push({
-        dataUrl: sqCanvas.toDataURL('image/png', 1),
-        filename: '\u5C01\u9762-1x1.png',
-        width: Math.round(cropSize / scale),
-        height: Math.round(cropSize / scale),
-        type: 'cover',
-        label: '\u5C0F\u56FE\u5C01\u9762',
       });
     } finally {
       document.body.removeChild(coverDiv);

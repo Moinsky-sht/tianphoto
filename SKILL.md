@@ -55,6 +55,12 @@ user_invocable: true
 ### `/tp help`
 显示所有可用指令说明。
 
+### `/tp version`
+显示当前安装的 Tianphoto 版本号，并检查 GitHub 是否有新版本可用。
+
+### `/tp update`
+从 GitHub 拉取最新版本，自动升级本地 skill 文件。
+
 ## 指令处理逻辑
 
 当用户输入 `/tp` 指令时，按以下规则处理：
@@ -65,6 +71,20 @@ user_invocable: true
 4. **`/tp style <id>`** → 验证 id 是否在 presets.json 中存在。存在则确认；不存在则给出最接近的建议
 5. **`/tp style list`** → 输出预设速查表
 6. **`/tp help`** → 输出指令帮助
+7. **`/tp version`** → 读取 `~/.claude/skills/tianphoto/version.json` 中的 `version` 字段，显示当前版本。然后用以下命令检查远程最新版本：
+   ```bash
+   curl -s https://raw.githubusercontent.com/Moinsky-sht/tianphoto/main/version.json
+   ```
+   对比版本号，告诉用户是否需要更新。如果 curl 失败（网络问题），提示用户可以手动访问 GitHub 检查。
+8. **`/tp update`** → 执行以下命令升级：
+   ```bash
+   cd ~/.claude/skills/tianphoto && git pull origin main
+   ```
+   如果本地有未提交的修改，先提示用户。如果 git pull 因网络失败，建议用户手动更新：
+   ```bash
+   cd ~/.claude/skills/tianphoto && git fetch origin main && git reset --hard origin/main
+   ```
+   更新完成后读取新的 version.json 确认版本号。
 
 ## 生成工作流
 
@@ -164,9 +184,8 @@ node ~/.claude/skills/tianphoto/scripts/render-image.js /tmp/article.html \
 - 底部工具栏：撤销/重做、加粗/斜体、列表/引用、插入图片
 - **保存**：点击"保存"按钮或 Cmd+S 下载编辑后的网页文件
 - **导出**：点击"导出"按钮生成 PNG 切片（按卡片/段落智能切分，所见即所得，适合公众号上传）
-- **封面图**：导出时自动生成两张封面图排在切片最前：
-  - **2.35:1 头条封面**（公众号头条封面）— 含 hero 背景和文章标题
-  - **1:1 小图封面**（多图文封面）— 含 SVG 装饰图标和标题
+- **封面图**：导出时自动生成公众号头条封面图排在切片最前：
+  - **2.35:1 头条封面**（公众号头条封面）— 含 hero 背景、Logo 和文章标题
 
 ## 渲染命令参数
 
