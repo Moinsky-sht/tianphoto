@@ -280,6 +280,8 @@
 .article-theme h3 {
   margin: 0 0 6px;
   font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* --- 卡片 (hero / intro / section) --- */
@@ -481,23 +483,62 @@
 
 .article-theme .wx-inline-graphic,
 .article-theme .wx-badge-art {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   display: grid;
   place-items: center;
   margin: 16px 0;
   padding: 20px;
+  min-height: 132px;
   border-radius: calc(var(--card-radius) - 6px);
-  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-strong) 100%);
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.58), transparent 26%),
+    radial-gradient(circle at 84% 18%, var(--hero-fade), transparent 28%),
+    linear-gradient(180deg, var(--surface) 0%, var(--surface-strong) 100%);
   border: var(--card-border);
   box-shadow: var(--card-shadow);
   color: var(--accent-strong);
 }
 
+.article-theme .wx-inline-graphic::before,
+.article-theme .wx-badge-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.28), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 70%);
+}
+
+.article-theme .wx-inline-graphic > *,
+.article-theme .wx-badge-art > * {
+  position: relative;
+  z-index: 1;
+}
+
 .article-theme .wx-divider-ornament {
-  display: grid;
-  place-items: center;
-  margin: 14px 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 6px 0 2px;
   color: var(--accent-strong);
-  opacity: 0.8;
+  opacity: 0.9;
+}
+
+.article-theme .wx-divider-ornament::before,
+.article-theme .wx-divider-ornament::after {
+  content: "";
+  flex: 1 1 0;
+  max-width: 92px;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, currentColor 54%, transparent);
+  opacity: 0.2;
 }
 
 .article-theme .wx-inline-graphic svg,
@@ -505,6 +546,27 @@
 .article-theme .wx-divider-ornament svg {
   max-width: 100%;
   height: auto;
+}
+
+.article-theme .wx-divider-ornament svg {
+  display: block;
+  width: min(138px, 40vw);
+  min-width: 96px;
+  overflow: visible;
+  filter: drop-shadow(0 10px 18px rgba(17, 24, 39, 0.08));
+}
+
+.article-theme .wx-divider-ornament[data-divider-variant="soft-stars"] svg {
+  width: min(114px, 31vw);
+}
+
+.article-theme .wx-divider-ornament[data-divider-variant="chevron-band"] svg,
+.article-theme .wx-divider-ornament[data-divider-variant="fold-divider"] svg {
+  width: min(146px, 42vw);
+}
+
+.article-theme .wx-divider-ornament[data-divider-variant="line-orbit"] svg {
+  width: min(108px, 29vw);
 }
 
 .article-theme svg { color: inherit; }
@@ -552,6 +614,20 @@
 .article-theme .wx-compare-card p {
   color: var(--text-muted);
   line-height: 1.7;
+}
+
+@media (max-width: 479px) {
+  .article-theme .wx-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .article-theme .wx-compare-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .article-theme .wx-metric-card strong {
+    font-size: 24px;
+  }
 }
 
 /* --- 引言卡片 --- */
@@ -691,6 +767,44 @@
 .article-theme.style-skin-mono-dark .wx-inline-graphic,
 .article-theme.style-skin-mono-dark .wx-divider-ornament {
   color: var(--accent-strong);
+}
+
+.article-theme.style-skin-editorial .wx-divider-ornament,
+.article-theme.style-skin-magazine .wx-divider-ornament,
+.article-theme.style-skin-soft .wx-divider-ornament,
+.article-theme.style-skin-glass .wx-divider-ornament,
+.article-theme.style-skin-luxe .wx-divider-ornament,
+.article-theme.style-skin-mono .wx-divider-ornament {
+  color: var(--text-main);
+  opacity: 0.68;
+}
+
+.article-theme.style-skin-editorial .wx-divider-ornament::before,
+.article-theme.style-skin-editorial .wx-divider-ornament::after,
+.article-theme.style-skin-magazine .wx-divider-ornament::before,
+.article-theme.style-skin-magazine .wx-divider-ornament::after,
+.article-theme.style-skin-soft .wx-divider-ornament::before,
+.article-theme.style-skin-soft .wx-divider-ornament::after,
+.article-theme.style-skin-glass .wx-divider-ornament::before,
+.article-theme.style-skin-glass .wx-divider-ornament::after,
+.article-theme.style-skin-luxe .wx-divider-ornament::before,
+.article-theme.style-skin-luxe .wx-divider-ornament::after,
+.article-theme.style-skin-mono .wx-divider-ornament::before,
+.article-theme.style-skin-mono .wx-divider-ornament::after {
+  opacity: 0.14;
+}
+
+.article-theme.style-skin-neon .wx-divider-ornament::before,
+.article-theme.style-skin-neon .wx-divider-ornament::after,
+.article-theme.style-skin-luxe-dark .wx-divider-ornament::before,
+.article-theme.style-skin-luxe-dark .wx-divider-ornament::after,
+.article-theme.style-skin-mono-dark .wx-divider-ornament::before,
+.article-theme.style-skin-mono-dark .wx-divider-ornament::after,
+.article-theme.style-skin-tech .wx-divider-ornament::before,
+.article-theme.style-skin-tech .wx-divider-ornament::after,
+.article-theme.style-skin-brutal .wx-divider-ornament::before,
+.article-theme.style-skin-brutal .wx-divider-ornament::after {
+  opacity: 0.28;
 }
 
 /* Tech (网格叠加) */

@@ -144,7 +144,7 @@
 </div>
 ```
 
-### 9. wx-divider-ornament（分隔线）
+### 9. wx-divider-ornament（分隔线，可选）
 
 ```html
 <div class="wx-divider-ornament">
@@ -289,24 +289,24 @@
 
 ### 分隔线 SVG（用于 wx-divider-ornament）
 
-#### line-orbit · 环形分隔
-```svg
-<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M4 14h70M146 14h70" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="110" cy="14" r="10" stroke="currentColor" stroke-width="2.5"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>
-```
-
-#### soft-stars · 星点分隔
+#### soft-stars · 星点分隔（暖色 / 杂志 / 轻盈主题优先）
 ```svg
 <svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/><path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/></svg>
 ```
 
-#### chevron-band · 切角分隔
+#### chevron-band · 切角分隔（科技 / 结构化主题优先）
 ```svg
 <svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h66l12-8 12 8 12-8 12 8h90" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 ```
 
-#### fold-divider · 折纸分隔
+#### fold-divider · 折纸分隔（厚重 / 暗色主题优先）
 ```svg
 <svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h78l16-8 16 8 16-8 16 8h62" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" opacity=".76"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>
+```
+
+#### line-orbit · 环形分隔（仅少量特殊场景使用，不建议默认）
+```svg
+<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M4 14h70M146 14h70" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="110" cy="14" r="10" stroke="currentColor" stroke-width="2.5"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>
 ```
 
 ### 印章 SVG（用于 wx-badge-art）

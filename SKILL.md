@@ -161,7 +161,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 不可以做的：省略段落、合并不同观点、用"等"替代具体列举、跳过案例/引用
 - **长文章就应该长** — 不要害怕生成很长的 HTML，一篇 5000 字的学术文章就应该输出 5000 字的排版页面
 - 结构策略：按原文章节逻辑拆分为多个 `wx-section-card`，每个 card 聚焦一个子主题
-- 每个原文大章节用 `wx-divider-ornament` 分隔
+- 只有在两个主段落之间确实需要“换气”时才使用 `wx-divider-ornament`，整篇控制在 0-2 个
 - 适当将定义/关键概念提取为 `wx-quote-card` 突出显示
 - 将数据/对比关系转化为 `wx-metric-grid` / `wx-compare-grid`（但文字说明仍然保留）
 
@@ -244,7 +244,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 | `wx-timeline-dot` | 时间线圆点 | ✓ |
 | `wx-quote-card` | 引言卡片 | ✓ |
 | `wx-summary-card` | 总结文字区 | ✓ |
-| `wx-divider-ornament` | 分隔线装饰 | ✓ |
+| `wx-divider-ornament` | 分隔线装饰（可选） | ✓ |
 | `wx-inline-graphic` | 内联图形容器 | ✓ |
 | `wx-badge-art` | 印章/徽标容器 | ✓ |
 | `wx-image-drop-zone` | 图片拖放占位 | ✓ |
@@ -352,11 +352,10 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 #### 分隔线模板（章节之间使用）
 
 ```html
-<div class="wx-divider-ornament">
+<div class="wx-divider-ornament" data-divider-variant="soft-stars">
   <svg viewBox="0 0 220 28" fill="none" aria-hidden="true">
-    <path d="M4 14h70M146 14h70" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-    <circle cx="110" cy="14" r="10" stroke="currentColor" stroke-width="2.5"/>
-    <circle cx="110" cy="14" r="3.5" fill="currentColor"/>
+    <path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+    <path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/>
   </svg>
 </div>
 ```
@@ -382,13 +381,16 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - [ ] 每个 `wx-section-card` 都有 `wx-section-top` > `wx-section-icon`（含 SVG）+ `wx-section-heading`
 - [ ] 每个 `wx-section-card` 的正文都包裹在 `wx-section-body` 中
 - [ ] 没有任何 Emoji 字符
-- [ ] 大章节之间有 `wx-divider-ornament` 分隔线
+- [ ] 如使用 `wx-divider-ornament`，整篇最多 1-2 个，且必须与主题匹配，不能反复贴通用圆环款
 - [ ] h1 有 inline style 指定 `font-size`（至少 28px）和 `color`
 - [ ] h2 有 inline style 指定 `font-size`（至少 20px）和 `color`
 - [ ] 单个 section-card 内容不超过 300 字（长内容拆分为多个 card）
+- [ ] `wx-metric-grid` / `wx-compare-grid` 在手机端最多 2 列，不允许 3 列或 4 列
 - [ ] `wx-metric-card` 的 `<strong>` 放数字/关键词，`<span>` 放说明
 - [ ] `wx-compare-card` 用 `<h3>` + `<p>`，不是自创的 `wx-compare-col`/`wx-compare-head`
 - [ ] `wx-quote-card` 是 `<blockquote>` 标签，不是 `<div>`
+- [ ] 没有把 `aurora-glass`、`Skill Demo`、`preset-id`、"我可以继续" 这类内部元信息写进用户可见正文
+- [ ] `wx-inline-graphic` / `wx-badge-art` 不是“空白占位块”，而是有清晰可见的视觉内容
 
 **排版要点：**
 - 正文字号 17px，已为手机优化
@@ -396,6 +398,8 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 列表优于长段落
 - 适度留白
 - 一个 section-card 只讲一个主题/概念，不要把多个章节内容塞进同一个 card
+- 对比卡片默认 1 列；只有内容非常短时才使用 2 列
+- 指标卡片默认 2 列；不要在手机端排 4 列小方格
 
 **绝对禁止 Emoji（最高优先级规则）：**
 
@@ -428,8 +432,16 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 3. **SVG 装饰是视觉灵魂** — 每篇文章至少包含：
    - 1 个 `wx-hero-mesh` SVG 背景（渐变 + 几何图形，不少于 3 个图形元素）
    - 每个 `wx-section-card` 必须有 `wx-section-icon`（从内置 SVG 库中选择，或自行设计）
-   - 1-2 个 `wx-divider-ornament` 分隔线装饰（用内置分隔线 SVG）
+   - 如确实需要章节转场，可使用 0-2 个 `wx-divider-ornament`，并按主题选择 `soft-stars` / `chevron-band` / `fold-divider`
    - 适当使用 `wx-inline-graphic` 或 `wx-badge-art` 增加视觉丰富度
+
+   **重要补充**：
+   - `wx-inline-graphic` / `wx-badge-art` 是可选项，不是必须项
+   - `wx-divider-ornament` 也是可选项，不是“每个大章节都要贴一个”
+   - 如果做不出有辨识度、可见度足够的 SVG，宁可不用，也不要生成一个像空白玻璃板的“假装饰”
+   - 禁止反复使用通用的“横线 + 圆环”分隔线；暖色/杂志风优先 `soft-stars`，科技风优先 `chevron-band`，厚重风格可用 `fold-divider`
+   - 在亮色主题中，禁止使用纯白或近白的低对比 SVG 作为唯一视觉内容
+   - 优先使用 `currentColor`、`var(--accent-strong)`、`var(--accent)`、`var(--text-main)` 等可见颜色
 
 4. **留白与节奏** — 组件之间通过 `wx-article-shell` 的 `gap: 22px` 自然留白。不要给组件加额外的 `margin-top`/`margin-bottom` 来"撑开"空间，也不要用空的 `<div>` 占位。
 
@@ -474,19 +486,31 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
    - 用 `wx-compare-grid` 取代部分纯文本 section
    - 让重点章节做更强的视觉强调，其余章节保持克制
 
-13. **标题必须有性格** — h1 不仅要大，还要体现预设性格：
+13. **不要暴露内部制作痕迹** — 输出给用户看的页面必须像正式成品，而不是 AI 工作台的中间稿：
+   - 不要写 `Skill Demo`、`aurora-glass`、`preset-id`、`README 已经明确` 这种内部语汇
+   - 不要出现“这次执行”“我可以继续”“如果你愿意我还能”这类助手口吻
+   - eyebrow、标签、指标、总结都应该是面向读者的成品化语言
+
+14. **标题必须有性格** — h1 不仅要大，还要体现预设性格：
    - editorial / magazine：更像刊物封面，克制但高级
    - tech / glass：更像产品发布页，强调层次、光感、面板感
    - brutal：更像态度海报，强调边框、对撞和块面
    - luxe：更像品牌视觉稿，强调留白、精致和装饰感
    - neon / mono-dark：更像夜间封面，强调光晕、反差和轮廓
 
-14. **每篇至少做 2 个“记忆点”** — 所谓记忆点，是指读者看完后能明显记住的视觉动作，例如：
+15. **每篇至少做 2 个“记忆点”** — 所谓记忆点，是指读者看完后能明显记住的视觉动作，例如：
    - 一个不对称的 hero 构图
    - 一组非常有辨识度的分隔线或印章
    - 一张做得像数据展板的指标区
    - 一段像杂志引页的引言区
    - 一个明显区别于正文卡片的总结收束区
+
+16. **产品型 / 工具型内容要“展示结果”** — 如果文章本身在介绍一个产品、技能或方法，不要只解释它能做什么，还要至少做出一个“结果证明区”：
+   - 工作流图
+   - 输出前后对比
+   - 使用场景面板
+   - 功能模块矩阵
+   - 典型交付物示意
 
 **创意自由度（鼓励发挥，但在规范框架内）：**
 

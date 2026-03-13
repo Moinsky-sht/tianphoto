@@ -127,6 +127,172 @@ function sanitizeArticleFragment(htmlContent) {
   };
 }
 
+const DIVIDER_VARIANT_SVGS = {
+  "soft-stars": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/><path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/></svg>',
+  "chevron-band": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h66l12-8 12 8 12-8 12 8h90" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  "fold-divider": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h78l16-8 16 8 16-8 16 8h62" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" opacity=".76"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>',
+  "line-orbit": '<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M4 14h70M146 14h70" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="110" cy="14" r="10" stroke="currentColor" stroke-width="2.5"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>',
+};
+
+function getArticleSkin(htmlContent) {
+  const match = htmlContent.match(/class=(['"])([^'"]*style-skin-([a-z-]+)[^'"]*)\1/i);
+  return match ? match[3] : null;
+}
+
+function pickPreferredDividerVariant(htmlContent, preset) {
+  const skin = getArticleSkin(htmlContent);
+  const presetId = preset?.id || "";
+
+  if (["tech", "neon", "mono-dark"].includes(skin) || /(ops|signal|terminal|neon|cobalt)/i.test(presetId)) {
+    return "chevron-band";
+  }
+
+  if (["brutal", "luxe-dark"].includes(skin)) {
+    return "fold-divider";
+  }
+
+  return "soft-stars";
+}
+
+function detectDividerVariant(svgContent) {
+  if (/M4 14h70M146 14h70/.test(svgContent) && /circle cx="110" cy="14" r="10"/.test(svgContent)) {
+    return "line-orbit";
+  }
+  if (/m102 7 2\.5 5\.5/i.test(svgContent) || /L110 15l-5\.5 2\.5/i.test(svgContent)) {
+    return "soft-stars";
+  }
+  if (/M8 14h66l12-8 12 8 12-8 12 8h90/.test(svgContent)) {
+    return "chevron-band";
+  }
+  if (/M8 14h78l16-8 16 8 16-8 16 8h62/.test(svgContent)) {
+    return "fold-divider";
+  }
+  return null;
+}
+
+function setDividerVariantAttr(attrs, variant) {
+  const sanitizedAttrs = attrs.replace(/\sdata-divider-variant=(['"])[^'"]*\1/gi, "");
+  return variant ? `${sanitizedAttrs} data-divider-variant="${variant}"` : sanitizedAttrs;
+}
+
+function normalizeDividerOrnaments(htmlContent, preset) {
+  const preferredVariant = pickPreferredDividerVariant(htmlContent, preset);
+  let normalizedCount = 0;
+  let replacedCount = 0;
+
+  const html = htmlContent.replace(
+    /<div([^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\2[^>]*)>([\s\S]*?)<\/div>/gi,
+    (match, attrs, _quote, innerHtml) => {
+      normalizedCount++;
+      const hasSvg = /<svg\b/i.test(innerHtml);
+      const currentVariant = hasSvg ? detectDividerVariant(innerHtml) : null;
+      const shouldReplace = !hasSvg || currentVariant === "line-orbit";
+      const nextVariant = shouldReplace ? preferredVariant : currentVariant;
+      const nextInner = shouldReplace ? DIVIDER_VARIANT_SVGS[preferredVariant] : innerHtml.trim();
+
+      if (shouldReplace) {
+        replacedCount++;
+      }
+
+      return `<div${setDividerVariantAttr(attrs, nextVariant)}>\n      ${nextInner}\n    </div>`;
+    }
+  );
+
+  return {
+    html,
+    normalizedCount,
+    replacedCount,
+    preferredVariant,
+  };
+}
+
+function countTemplateColumns(styleValue) {
+  const match = styleValue.match(/grid-template-columns\s*:\s*([^;]+)/i);
+  if (!match) return null;
+  const template = match[1].trim();
+
+  const repeatMatch = template.match(/repeat\(\s*(\d+)\s*,/i);
+  if (repeatMatch) return parseInt(repeatMatch[1], 10);
+
+  const columns = template.match(/minmax\([^)]+\)|(?:\d*\.?\d+fr)|auto/gi);
+  return columns ? columns.length : null;
+}
+
+function validateGridLayouts(htmlContent) {
+  const regex = /<div[^>]*class=(['"])([^'"]*wx-(metric|compare)-grid[^'"]*)\1[^>]*style=(['"])([^'"]*)\4/gi;
+  let match;
+
+  while ((match = regex.exec(htmlContent))) {
+    const kind = match[3];
+    const columns = countTemplateColumns(match[5]);
+    if (columns !== null && columns > 2) {
+      throw new Error(
+        `Mobile layout guard: wx-${kind}-grid uses ${columns} columns. ` +
+        "Keep metric/compare grids at 1-2 columns for mobile readability."
+      );
+    }
+  }
+}
+
+function svgLooksLowContrast(svgContent) {
+  const hasThemeDrivenColor = /currentColor|var\(--accent|var\(--text|var\(--hero|var\(--brand/i.test(svgContent);
+  const hasNonWhiteColor = /#[0-9a-fA-F]{3,8}/.test(svgContent)
+    || /rgba?\(\s*(?!255\s*,\s*255\s*,\s*255)/i.test(svgContent);
+  const usesWhiteOnly = /rgba?\(\s*255\s*,\s*255\s*,\s*255/i.test(svgContent)
+    || /fill=(['"])white\1/i.test(svgContent)
+    || /stroke=(['"])white\1/i.test(svgContent);
+
+  return usesWhiteOnly && !hasThemeDrivenColor && !hasNonWhiteColor;
+}
+
+function validateDecorativeGraphics(htmlContent) {
+  const lightSkins = new Set(["editorial", "glass", "magazine", "soft", "tech", "mono", "luxe", "brutal"]);
+  const skin = getArticleSkin(htmlContent);
+  if (!skin || !lightSkins.has(skin)) return;
+
+  const regex = /<div[^>]*class=(['"])([^'"]*wx-(inline-graphic|badge-art)[^'"]*)\1[^>]*>([\s\S]*?)<\/div>/gi;
+  let match;
+
+  while ((match = regex.exec(htmlContent))) {
+    const componentName = match[3];
+    const blockHtml = match[4];
+    const svgMatch = blockHtml.match(/<svg\b[\s\S]*?<\/svg>/i);
+    if (!svgMatch) continue;
+
+    if (svgLooksLowContrast(svgMatch[0])) {
+      throw new Error(
+        `Visual guard: wx-${componentName} uses a low-contrast SVG on a light theme. ` +
+        "Use currentColor / preset variables / visible accent strokes, or remove the decorative block."
+      );
+    }
+  }
+}
+
+function validateDividerOrnaments(htmlContent) {
+  const dividerBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
+
+  if (dividerBlocks.length > 2) {
+    throw new Error(
+      `Divider guard: found ${dividerBlocks.length} wx-divider-ornament blocks. ` +
+      "Use 0-2 chapter dividers on mobile pages; section-card spacing already provides separation."
+    );
+  }
+
+  const orbitCount = dividerBlocks.filter((block) => detectDividerVariant(block) === "line-orbit").length;
+  if (orbitCount > 0) {
+    throw new Error(
+      "Divider guard: the generic line-orbit divider is deprecated. " +
+      "Use soft-stars / chevron-band / fold-divider, or omit the divider entirely."
+    );
+  }
+}
+
+function validateArticleDesign(htmlContent) {
+  validateGridLayouts(htmlContent);
+  validateDecorativeGraphics(htmlContent);
+  validateDividerOrnaments(htmlContent);
+}
+
 function findDefaultLogoPath() {
   const logoDir = path.join(SKILL_DIR, "logos");
   const candidates = [
@@ -393,8 +559,11 @@ async function main() {
   const cssContent = fs.readFileSync(CSS_PATH, "utf-8");
   const presetsData = JSON.parse(fs.readFileSync(PRESETS_PATH, "utf-8"));
   const rawHtmlContent = fs.readFileSync(htmlPath, "utf-8");
-  const { html: htmlContent, hadOuterDocument } = sanitizeArticleFragment(rawHtmlContent);
-  const preset = loadPreset(presetsData, args.preset, htmlContent);
+  const { html: inputArticleHtml, hadOuterDocument } = sanitizeArticleFragment(rawHtmlContent);
+  const preset = loadPreset(presetsData, args.preset, inputArticleHtml);
+  const dividerNormalization = normalizeDividerOrnaments(inputArticleHtml, preset);
+  const htmlContent = dividerNormalization.html;
+  validateArticleDesign(htmlContent);
   const allVars = { ...presetsData.baseVars, ...preset.vars };
   const cssVarsBlock = Object.entries(allVars).map(([k, v]) => `  ${k}: ${v};`).join("\n");
   const logoHtml = buildLogoHtml(resolveLogoOptions(args));
@@ -403,6 +572,12 @@ async function main() {
   console.log(`Preset: ${preset.id} (${preset.name})`);
   if (hadOuterDocument) {
     console.log("Sanitized input: extracted the <article> fragment from a full HTML document.");
+  }
+  if (dividerNormalization.replacedCount > 0) {
+    console.log(
+      `Divider cleanup: replaced ${dividerNormalization.replacedCount} generic divider(s) ` +
+      `with ${dividerNormalization.preferredVariant}.`
+    );
   }
 
   // 1. Always output standalone HTML page
