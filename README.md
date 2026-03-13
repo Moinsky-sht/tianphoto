@@ -18,6 +18,9 @@ git clone https://github.com/Moinsky-sht/tianphoto.git ~/.claude/skills/tianphot
 - `/tp` — 启动 Tianphoto
 - `/tp style list` — 查看 32 套预设风格
 - `/tp style <preset-id>` — 指定风格（如 `aurora-glass`）
+- `/tp select auto` — 自动判断内容详略（默认）
+- `/tp select full` — 完整保留原文内容
+- `/tp select compact` — 紧凑压缩模式
 - `/tp logo on` — 启用品牌 Logo
 - `/tp version` — 检查版本和更新
 - `/tp update` — 升级到最新版本
@@ -36,6 +39,7 @@ git clone https://github.com/Moinsky-sht/tianphoto.git ~/.claude/skills/tianphot
 - **一键导出** — 按卡片智能切片导出 PNG（所见即所得）
 - **自动封面** — 导出时自动生成公众号 2.35:1 头条封面图
 - **32 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
+- **智能内容模式** — auto/full/compact 三档，自动识别文章类型适配详略
 - **Logo 支持** — 在 `logos/` 目录放入 `brand-logo.png` 即可启用品牌横幅
 
 ## 预设风格速查
