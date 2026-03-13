@@ -23,6 +23,15 @@ user_invocable: true
 - 点击底部"保存"按钮（或 Cmd+S）保存修改后的网页
 - 点击"导出"按钮生成 PNG 切片
 
+## 30 秒快速开始
+
+约定：下文中的 `$SKILL_DIR` 表示**当前正在使用的 `tianphoto` 技能根目录**。不要把路径硬编码成 `~/.claude` 或其他固定目录，始终以当前加载的 skill 目录为准。
+
+1. 用户直接给文章文字或 URL 时，先判断内容模式，再选预设，最后生成 `<article>` 片段。
+2. 把片段保存为临时 HTML 后，调用 `node $SKILL_DIR/scripts/render-image.js ...` 输出桌面网页。
+3. 如果用户要品牌横幅，把 logo 放到 `$SKILL_DIR/logos/brand-logo.png`，再用 `/tp logo title 名字` 和 `/tp logo subtitle 副标题` 写入本地配置。
+4. 如果用户只是输入 `/tp style list` 或 `/tp help`，直接返回纯文本速查表，不要开始生成。
+
 ## /tp 指令系统
 
 用户可以用以下指令来配置 Tianphoto 的行为：
@@ -30,12 +39,18 @@ user_invocable: true
 ### `/tp logo on`
 启用 Logo 功能。提示用户将 Logo 图片放到以下位置：
 ```
-~/.claude/skills/tianphoto/logos/brand-logo.png
+$SKILL_DIR/logos/brand-logo.png
 ```
 文件必须命名为 `brand-logo.png`（或 `.svg` / `.jpg`）。放好后再次运行即可自动嵌入品牌横幅。
 
 ### `/tp logo off`
 关闭 Logo 功能，生成的页面不显示品牌横幅。
+
+### `/tp logo title <text>`
+设置品牌横幅主标题，并持久化到 `$SKILL_DIR/local-settings.json`。
+
+### `/tp logo subtitle <text>`
+设置品牌横幅副标题，并持久化到 `$SKILL_DIR/local-settings.json`。
 
 ### `/tp style auto`
 自动模式（默认）。根据文章内容主题自动匹配最佳预设风格。
@@ -50,10 +65,10 @@ user_invocable: true
 完整的 32 套预设见下方速查表。
 
 ### `/tp style list`
-列出所有可用预设，附带预览说明。
+列出所有可用预设，附带预览说明。直接返回纯文本速查表，不要开始生成。
 
 ### `/tp help`
-显示所有可用指令说明。
+显示所有可用指令说明。直接返回简短帮助，不要开始生成。
 
 ### `/tp version`
 显示当前安装的 Tianphoto 版本号，并检查 GitHub 是否有新版本可用。
@@ -74,29 +89,27 @@ user_invocable: true
 
 当用户输入 `/tp` 指令时，按以下规则处理：
 
-1. **`/tp logo on`** → 检查 `~/.claude/skills/tianphoto/logos/` 目录下是否有 `brand-logo.*` 文件（支持 png/jpg/svg）。有则确认已启用；没有则提示用户放置文件到该目录，文件名固定为 `brand-logo`
-2. **`/tp logo off`** → 告诉用户后续生成将不包含品牌横幅
-3. **`/tp style auto`** → 确认已切换为自动匹配模式
-4. **`/tp style <id>`** → 验证 id 是否在 presets.json 中存在。存在则确认；不存在则给出最接近的建议
-5. **`/tp style list`** → 输出预设速查表
-6. **`/tp help`** → 输出指令帮助
-7. **`/tp version`** → 读取 `~/.claude/skills/tianphoto/version.json` 中的 `version` 字段，显示当前版本。然后用以下命令检查远程最新版本：
+1. **`/tp logo on`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo on`，然后检查 `$SKILL_DIR/logos/` 目录下是否有 `brand-logo.*` 文件（支持 png/jpg/svg）。有则确认已启用；没有则提示用户放置文件到该目录，文件名固定为 `brand-logo`
+2. **`/tp logo off`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo off`，告诉用户后续生成将不包含品牌横幅
+3. **`/tp logo title <text>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo title "<text>"`，确认新的品牌标题已保存
+4. **`/tp logo subtitle <text>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo subtitle "<text>"`，确认新的品牌副标题已保存
+5. **`/tp style auto`** → 确认已切换为自动匹配模式
+6. **`/tp style <id>`** → 验证 id 是否在 presets.json 中存在。存在则确认；不存在则给出最接近的建议
+7. **`/tp style list`** → 直接输出预设速查表，不要生成页面
+8. **`/tp help`** → 直接输出指令帮助，不要生成页面
+9. **`/tp version`** → 读取 `$SKILL_DIR/version.json` 中的 `version` 字段，显示当前版本。然后用以下命令检查远程最新版本：
    ```bash
    curl -s https://raw.githubusercontent.com/Moinsky-sht/tianphoto/main/version.json
    ```
    对比版本号，告诉用户是否需要更新。如果 curl 失败（网络问题），提示用户可以手动访问 GitHub 检查。
-8. **`/tp update`** → 执行以下命令升级：
+10. **`/tp update`** → 执行以下命令升级：
    ```bash
-   cd ~/.claude/skills/tianphoto && git pull origin main
+   cd $SKILL_DIR && git pull origin main
    ```
-   如果本地有未提交的修改，先提示用户。如果 git pull 因网络失败，建议用户手动更新：
-   ```bash
-   cd ~/.claude/skills/tianphoto && git fetch origin main && git reset --hard origin/main
-   ```
-   更新完成后读取新的 version.json 确认版本号。
-9. **`/tp select auto`** → 确认已切换为自动判断模式（默认）
-10. **`/tp select full`** → 确认已切换为完整保留模式
-11. **`/tp select compact`** → 确认已切换为紧凑压缩模式
+   如果本地有未提交的修改，先提示用户，不要覆盖本地改动。更新完成后读取新的 version.json 确认版本号。
+11. **`/tp select auto`** → 确认已切换为自动判断模式（默认）
+12. **`/tp select full`** → 确认已切换为完整保留模式
+13. **`/tp select compact`** → 确认已切换为紧凑压缩模式
 
 ## 生成工作流
 
@@ -108,7 +121,7 @@ user_invocable: true
 curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianphoto/main/version.json
 ```
 
-读取本地 `~/.claude/skills/tianphoto/version.json` 的 `version` 字段，与远程返回的 `version` 对比：
+读取本地 `$SKILL_DIR/version.json` 的 `version` 字段，与远程返回的 `version` 对比：
 - **版本相同或 curl 失败** → 不提示任何内容，静默继续
 - **远程版本更新** → 在回复开头简短提醒一句：「Tianphoto 有新版本 vX.X.X 可用，运行 `/tp update` 升级」，然后继续正常生成
 
@@ -117,7 +130,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 ### Step 1: 获取内容
 
 - **纯文本**：直接使用
-- **URL**：`node ~/.claude/skills/tianphoto/scripts/fetch-content.js <url>`
+- **URL**：`node $SKILL_DIR/scripts/fetch-content.js <url>`
 
 ### Step 1.5: 确定内容模式（auto / full / compact）
 
@@ -179,6 +192,12 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 ### Step 3: 生成 HTML
 
 **⚠️ 关键：你只需要生成 `<article>` 标签内的 HTML 片段，不要生成 `<!DOCTYPE>`、`<html>`、`<head>`、`<body>` 等外层标签。render-image.js 会自动包裹这些外层结构。**
+
+`render-image.js` 现在会在渲染前自动做两层保护：
+- 如果输入的是完整 HTML 页面，会先抽取其中的 `<article>` 片段再继续
+- 如果抽取后仍然存在 `<html>` / `<head>` / `<body>`，或者 `<article>` 根节点不是唯一一个，就直接报错并停止输出
+
+所以当结构校验失败时，不要硬着头皮继续渲染，应该回到这一步重新生成正确片段。
 
 **结构规范：**
 
@@ -452,9 +471,12 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 ### Step 4: 检查 Logo
 
-检查 `~/.claude/skills/tianphoto/logos/` 目录下是否有 `brand-logo.*` 文件。
-- 有文件 → 传 `--logo` 参数
-- 没有文件 → 不传
+检查 `$SKILL_DIR/logos/` 目录下是否有 `brand-logo.*` 文件，必要时读取 `$SKILL_DIR/local-settings.json`。
+- `logo.enabled = false` → 即使目录里有 logo 文件，也不要显示品牌横幅
+- `logo.enabled = true` 且存在 logo 文件 → 会自动使用 `brand-logo.*`，并带上已保存的 title / subtitle
+- 没有 logo 文件 → 不显示品牌横幅
+
+如果用户刚设置过 `/tp logo title` 或 `/tp logo subtitle`，用 `node $SKILL_DIR/scripts/tp-config.js show` 确认一下当前配置。
 
 ### Step 5: 渲染输出
 
@@ -462,15 +484,16 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 ```bash
 # 生成可编辑网页（默认行为）
-node ~/.claude/skills/tianphoto/scripts/render-image.js /tmp/article.html \
+node $SKILL_DIR/scripts/render-image.js /tmp/article.html \
   --output ~/Desktop \
   --preset {preset-id}
 
-# 如果有 logo
-node ~/.claude/skills/tianphoto/scripts/render-image.js /tmp/article.html \
+# 如果要临时覆盖 logo 文案
+node $SKILL_DIR/scripts/render-image.js /tmp/article.html \
   --output ~/Desktop \
   --preset {preset-id} \
-  --logo ~/.claude/skills/tianphoto/logos/brand-logo.png
+  --logo-title "品牌名" \
+  --logo-subtitle "副标题"
 ```
 
 ### Step 6: 交付
@@ -491,7 +514,7 @@ node ~/.claude/skills/tianphoto/scripts/render-image.js /tmp/article.html \
 ## 渲染命令参数
 
 ```
-node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--png]
+node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--logo-title text] [--logo-subtitle text] [--logo-enabled bool] [--png]
 ```
 
 | 参数 | 说明 | 默认值 |
@@ -500,6 +523,9 @@ node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--p
 | `--output` | 输出目录 | ~/Desktop |
 | `--preset` | 预设 ID | HTML 中的 data-preset |
 | `--logo` | Logo 图片路径 | — |
+| `--logo-title` | 临时覆盖横幅主标题 | `local-settings.json` 中的 title |
+| `--logo-subtitle` | 临时覆盖横幅副标题 | `local-settings.json` 中的 subtitle |
+| `--logo-enabled` | 临时强制开/关横幅 | `local-settings.json` 中的 enabled |
 | `--png` | 额外导出 PNG | 不导出 |
 
 ## 输出文件

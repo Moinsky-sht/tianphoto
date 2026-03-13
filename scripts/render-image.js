@@ -10,6 +10,9 @@
  *   --output <dir>        Output directory (default: same dir as html file)
  *   --preset <id>         Preset ID from presets.json (overrides HTML preset)
  *   --logo <path>         Path to logo image to inject into brand banner
+ *   --logo-title <text>   Override logo title text
+ *   --logo-subtitle <text>  Override logo subtitle text
+ *   --logo-enabled <bool> Force enable/disable logo banner
  *   --png                 Also export PNG (uses system Chrome, no npm install needed)
  *   --slice-height <px>   Max slice height for PNG (default: 1520, 0 = no slice)
  *
@@ -20,6 +23,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
+const { loadSettings } = require("./settings");
 
 const SKILL_DIR = path.resolve(__dirname, "..");
 const CSS_PATH = path.join(SKILL_DIR, "assets", "article-theme.css");
@@ -49,18 +53,119 @@ function loadPreset(presetsData, presetId, htmlContent) {
     const p = presetsData.presets.find((p) => p.id === presetId);
     if (p) return p;
   }
-  const match = htmlContent.match(/data-preset="([^"]+)"/);
+  const match = htmlContent.match(/data-preset=(['"])([^'"]+)\1/i);
   if (match) {
-    const p = presetsData.presets.find((p) => p.id === match[1]);
+    const p = presetsData.presets.find((p) => p.id === match[2]);
     if (p) return p;
   }
   return presetsData.presets[0];
 }
 
-function buildLogoHtml(logoPath) {
-  if (!logoPath || !fs.existsSync(logoPath)) return "";
-  const logoBase64 = fs.readFileSync(logoPath).toString("base64");
-  const ext = path.extname(logoPath).slice(1).toLowerCase();
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return null;
+}
+
+function stripDoctype(htmlContent) {
+  return htmlContent.replace(/<!doctype[^>]*>/gi, "").trim();
+}
+
+function extractTagInnerHtml(htmlContent, tagName) {
+  const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
+  const match = htmlContent.match(pattern);
+  return match ? match[1].trim() : null;
+}
+
+function extractFirstArticle(htmlContent) {
+  const match = htmlContent.match(/<article\b[\s\S]*?<\/article>/i);
+  return match ? match[0].trim() : null;
+}
+
+function sanitizeArticleFragment(htmlContent) {
+  let sanitized = stripDoctype(htmlContent.replace(/^\uFEFF/, "").trim());
+  let hadOuterDocument = false;
+
+  if (/<(?:html|head|body)\b/i.test(sanitized)) {
+    hadOuterDocument = true;
+    sanitized = extractTagInnerHtml(sanitized, "body")
+      || extractTagInnerHtml(sanitized, "html")
+      || sanitized;
+    sanitized = stripDoctype(sanitized);
+  }
+
+  const articleHtml = extractFirstArticle(sanitized);
+  if (articleHtml) sanitized = articleHtml;
+
+  if (/<\/?(?:html|head|body)\b/i.test(sanitized)) {
+    throw new Error(
+      "Input HTML still contains document-level tags after sanitization. " +
+      "Provide a single <article> fragment or a saved Tianphoto page."
+    );
+  }
+
+  const articleCount = (sanitized.match(/<article\b/gi) || []).length;
+  if (articleCount !== 1) {
+    throw new Error(`Input HTML must contain exactly one <article> root; found ${articleCount}.`);
+  }
+
+  return {
+    html: sanitized,
+    hadOuterDocument,
+  };
+}
+
+function findDefaultLogoPath() {
+  const logoDir = path.join(SKILL_DIR, "logos");
+  const candidates = [
+    "brand-logo.png",
+    "brand-logo.svg",
+    "brand-logo.jpg",
+    "brand-logo.jpeg",
+    "logo.png",
+    "logo.svg",
+    "logo.jpg",
+    "logo.jpeg",
+  ];
+
+  for (const filename of candidates) {
+    const absolutePath = path.join(logoDir, filename);
+    if (fs.existsSync(absolutePath)) return absolutePath;
+  }
+  return null;
+}
+
+function resolveLogoOptions(args) {
+  const settings = loadSettings();
+  const enabledOverride = parseBoolean(args["logo-enabled"]);
+  const enabled = enabledOverride === null ? settings.logo.enabled !== false : enabledOverride;
+
+  return {
+    enabled,
+    path: args.logo ? path.resolve(args.logo) : findDefaultLogoPath(),
+    title: args["logo-title"] || settings.logo.title,
+    subtitle: args["logo-subtitle"] || settings.logo.subtitle,
+  };
+}
+
+function buildLogoHtml(logoOptions) {
+  if (!logoOptions.enabled || !logoOptions.path || !fs.existsSync(logoOptions.path)) return "";
+  const logoBase64 = fs.readFileSync(logoOptions.path).toString("base64");
+  const ext = path.extname(logoOptions.path).slice(1).toLowerCase();
+  const title = escapeHtml(logoOptions.title || "品牌名称");
+  const subtitle = escapeHtml(logoOptions.subtitle || "品牌描述");
   const mime = ext === "svg" ? "image/svg+xml" : `image/${ext === "jpg" ? "jpeg" : ext}`;
   return `
 <div class="phone-brand-banner">
@@ -68,8 +173,8 @@ function buildLogoHtml(logoPath) {
     <img src="data:${mime};base64,${logoBase64}" alt="Logo">
   </div>
   <div class="phone-brand-copy">
-    <strong contenteditable="true">品牌名称</strong>
-    <small contenteditable="true">品牌描述</small>
+    <strong contenteditable="true">${title}</strong>
+    <small contenteditable="true">${subtitle}</small>
   </div>
 </div>`;
 }
@@ -265,7 +370,11 @@ async function main() {
   const htmlFile = args._[0];
 
   if (!htmlFile) {
-    console.error("Usage: node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--png] [--slice-height px]");
+    console.error(
+      "Usage: node render-image.js <html-file> [--output dir] [--preset id] " +
+      "[--logo path] [--logo-title text] [--logo-subtitle text] [--logo-enabled bool] " +
+      "[--png] [--slice-height px]"
+    );
     process.exit(1);
   }
 
@@ -278,20 +387,23 @@ async function main() {
   const outputDir = args.output ? path.resolve(args.output) : path.join(require("os").homedir(), "Desktop");
   const sliceHeight = parseInt(args["slice-height"] || "1520", 10);
   const wantPng = !!args.png;
-  const logoPath = args.logo ? path.resolve(args.logo) : null;
 
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   const cssContent = fs.readFileSync(CSS_PATH, "utf-8");
   const presetsData = JSON.parse(fs.readFileSync(PRESETS_PATH, "utf-8"));
-  const htmlContent = fs.readFileSync(htmlPath, "utf-8");
+  const rawHtmlContent = fs.readFileSync(htmlPath, "utf-8");
+  const { html: htmlContent, hadOuterDocument } = sanitizeArticleFragment(rawHtmlContent);
   const preset = loadPreset(presetsData, args.preset, htmlContent);
   const allVars = { ...presetsData.baseVars, ...preset.vars };
   const cssVarsBlock = Object.entries(allVars).map(([k, v]) => `  ${k}: ${v};`).join("\n");
-  const logoHtml = buildLogoHtml(logoPath);
+  const logoHtml = buildLogoHtml(resolveLogoOptions(args));
   const baseName = path.basename(htmlFile, path.extname(htmlFile));
 
   console.log(`Preset: ${preset.id} (${preset.name})`);
+  if (hadOuterDocument) {
+    console.log("Sanitized input: extracted the <article> fragment from a full HTML document.");
+  }
 
   // 1. Always output standalone HTML page
   const standaloneHtml = buildStandalonePage(htmlContent, cssContent, cssVarsBlock, preset, logoHtml);
