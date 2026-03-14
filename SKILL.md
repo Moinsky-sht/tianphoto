@@ -27,14 +27,33 @@ user_invocable: true
 
 约定：下文中的 `$SKILL_DIR` 表示**当前正在使用的 `tianphoto` 技能根目录**。不要把路径硬编码成 `~/.claude` 或其他固定目录，始终以当前加载的 skill 目录为准。
 
-1. 用户直接给文章文字或 URL 时，先判断内容模式，再选预设，最后生成 `<article>` 片段。
+1. 用户直接给文章文字或 URL 时，先判断内容模式，再判断 UI 模式，再选预设，最后生成 `<article>` 片段。
 2. 把片段保存为临时 HTML 后，调用 `node $SKILL_DIR/scripts/render-image.js ...` 输出桌面网页。
 3. 如果用户要品牌横幅，把 logo 放到 `$SKILL_DIR/logos/brand-logo.png`，再用 `/tp logo title 名字` 和 `/tp logo subtitle 副标题` 写入本地配置。
-4. 如果用户只是输入 `/tp style list` 或 `/tp help`，直接返回纯文本速查表，不要开始生成。
+4. 如果用户输入 `/tp ui rule`、`/tp ui free 2` 或 `/tp doctor`，优先处理这些快速指令，不要开始生成。
+5. 如果用户只是输入 `/tp style list` 或 `/tp help`，直接返回纯文本速查表，不要开始生成。
 
 ## /tp 指令系统
 
 用户可以用以下指令来配置 Tianphoto 的行为：
+
+### 高优先级快速指令
+
+这些指令一旦出现，就应当**优先处理并立即返回结果**，不要继续进入内容分析和页面生成：
+
+### `/tp ui rule`
+切换到**规则模式**。后续生成继续使用当前这套强结构、强组件、强校验的稳定排版流程。
+
+### `/tp ui free`
+切换到**自由模式**。后续生成默认一次输出 2 个不同方向的抽卡版本。
+
+### `/tp ui free <count>`
+切换到自由模式，并设置一次生成的抽卡版本数。默认 `2`，最大 `5`。例如：
+- `/tp ui free 2`
+- `/tp ui free 4`
+
+### `/tp doctor`
+快速检查当前 skill 状态：版本、UI 模式、logo 配置、Chrome 可用性、预设数量等。
 
 ### `/tp logo on`
 启用 Logo 功能。提示用户将 Logo 图片放到以下位置：
@@ -62,7 +81,7 @@ $SKILL_DIR/logos/brand-logo.png
 - `/tp style comet-neon` — 彗星霓光（暗色发布）
 - `/tp style jade-zen` — 青玉留白（禅意阅读）
 
-完整的 32 套预设见下方速查表。
+完整的 36 套预设见下方速查表。
 
 ### `/tp style list`
 列出所有可用预设，附带预览说明。直接返回纯文本速查表，不要开始生成。
@@ -89,27 +108,32 @@ $SKILL_DIR/logos/brand-logo.png
 
 当用户输入 `/tp` 指令时，按以下规则处理：
 
-1. **`/tp logo on`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo on`，然后检查 `$SKILL_DIR/logos/` 目录下是否有 `brand-logo.*` 文件（支持 png/jpg/svg）。有则确认已启用；没有则提示用户放置文件到该目录，文件名固定为 `brand-logo`
-2. **`/tp logo off`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo off`，告诉用户后续生成将不包含品牌横幅
-3. **`/tp logo title <text>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo title "<text>"`，确认新的品牌标题已保存
-4. **`/tp logo subtitle <text>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo subtitle "<text>"`，确认新的品牌副标题已保存
-5. **`/tp style auto`** → 确认已切换为自动匹配模式
-6. **`/tp style <id>`** → 验证 id 是否在 presets.json 中存在。存在则确认；不存在则给出最接近的建议
-7. **`/tp style list`** → 直接输出预设速查表，不要生成页面
-8. **`/tp help`** → 直接输出指令帮助，不要生成页面
-9. **`/tp version`** → 读取 `$SKILL_DIR/version.json` 中的 `version` 字段，显示当前版本。然后用以下命令检查远程最新版本：
+1. **先看是不是高优先级快速指令**。如果用户消息以 `/tp ui` 或 `/tp doctor` 开头，优先执行，不要继续做内容分析。
+2. **`/tp ui rule`** → 执行 `node $SKILL_DIR/scripts/tp-config.js ui rule`，确认后续生成将回到稳定组件化模式
+3. **`/tp ui free`** → 执行 `node $SKILL_DIR/scripts/tp-config.js ui free`，确认后续默认一次生成 2 个自由抽卡版本
+4. **`/tp ui free <count>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js ui free <count>`，其中 `<count>` 超过 5 时按 5 处理；确认当前自由模式抽卡数
+5. **`/tp doctor`** → 执行 `node $SKILL_DIR/scripts/tp-doctor.js`，直接返回诊断结果；如果用户同时给了本地 HTML 文件路径，可以执行 `node $SKILL_DIR/scripts/tp-doctor.js <path>`
+6. **`/tp logo on`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo on`，然后检查 `$SKILL_DIR/logos/` 目录下是否有 `brand-logo.*` 文件（支持 png/jpg/svg）。有则确认已启用；没有则提示用户放置文件到该目录，文件名固定为 `brand-logo`
+7. **`/tp logo off`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo off`，告诉用户后续生成将不包含品牌横幅
+8. **`/tp logo title <text>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo title "<text>"`，确认新的品牌标题已保存
+9. **`/tp logo subtitle <text>`** → 执行 `node $SKILL_DIR/scripts/tp-config.js logo subtitle "<text>"`，确认新的品牌副标题已保存
+10. **`/tp style auto`** → 确认已切换为自动匹配模式
+11. **`/tp style <id>`** → 验证 id 是否在 presets.json 中存在。存在则确认；不存在则给出最接近的建议
+12. **`/tp style list`** → 直接输出预设速查表，不要生成页面
+13. **`/tp help`** → 直接输出指令帮助，不要生成页面
+14. **`/tp version`** → 读取 `$SKILL_DIR/version.json` 中的 `version` 字段，显示当前版本。然后用以下命令检查远程最新版本：
    ```bash
    curl -s https://raw.githubusercontent.com/Moinsky-sht/tianphoto/main/version.json
    ```
    对比版本号，告诉用户是否需要更新。如果 curl 失败（网络问题），提示用户可以手动访问 GitHub 检查。
-10. **`/tp update`** → 执行以下命令升级：
+15. **`/tp update`** → 执行以下命令升级：
    ```bash
    cd $SKILL_DIR && git pull origin main
    ```
    如果本地有未提交的修改，先提示用户，不要覆盖本地改动。更新完成后读取新的 version.json 确认版本号。
-11. **`/tp select auto`** → 确认已切换为自动判断模式（默认）
-12. **`/tp select full`** → 确认已切换为完整保留模式
-13. **`/tp select compact`** → 确认已切换为紧凑压缩模式
+16. **`/tp select auto`** → 确认已切换为自动判断模式（默认）
+17. **`/tp select full`** → 确认已切换为完整保留模式
+18. **`/tp select compact`** → 确认已切换为紧凑压缩模式
 
 ## 生成工作流
 
@@ -184,9 +208,37 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
   - 将冗长解释转为精炼列表
   - 典型压缩比：原文的 60%-80%
 
+### Step 1.75: 确定 UI 模式（rule / free）
+
+读取 `$SKILL_DIR/local-settings.json` 中的 `ui` 配置：
+- `ui.mode = "rule"` → 走**规则模式**
+- `ui.mode = "free"` → 走**自由模式**
+- `ui.free_variants` → 自由模式的一次输出版本数，默认 `2`，最大 `5`
+
+如果用户本轮消息里明确提到了 `/tp ui rule` 或 `/tp ui free 2`，以当前消息为准；否则沿用本地已保存的 UI 模式。
+
+告诉用户当前使用的 UI 模式及理由。
+
+#### `rule` — 规则模式
+
+- 使用固定组件体系、class 白名单和结构校验
+- 输出稳定、规整、适合成绩单、复试资料、汇报页、知识长图
+- 优先追求交付稳定性，而不是版式冒险
+
+#### `free` — 自由模式
+
+- **只保留手机端底层约束，不强制使用 `wx-*` 组件体系**
+- 允许 AI 自定义 class、自写 `<style>`、自建版式节奏和视觉语言
+- 默认一次生成 `2` 个不同方向的页面；如果用户指定 `/tp ui free 4`，则生成 `4` 个版本；最大 `5`
+- 仍然必须符合手机视觉、可编辑、可导出、可阅读
+- 这不是“乱做”，而是“底盘固定、设计自由”
+
 ### Step 2: 识别内容主题 → 选预设
 
 参考 `references/content-types.md`，分析内容类型。如果用户用 `/tp style` 指定了预设则直接使用，否则自动匹配。
+
+- 在 `rule` 模式下，preset 代表**版式系统 + 色彩气质 + 组件习惯**
+- 在 `free` 模式下，preset 代表**色盘 + 气质锚点 + 视觉语气**，不是硬模板
 
 告诉用户选了什么预设及理由。
 并且在开始生成前，必须再为这篇内容补一句**明确的视觉方向描述**，例如：
@@ -206,7 +258,50 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 所以当结构校验失败时，不要硬着头皮继续渲染，应该回到这一步重新生成正确片段。
 
-**结构规范：**
+#### 如果当前是 `free` 模式
+
+使用**自由模式根结构**，不要硬套 `wx-*` 白名单组件：
+
+```html
+<article data-ui-mode="free" data-preset="{preset-id}">
+  <style>
+    /* 当前页面自己的视觉系统 */
+  </style>
+  <!-- 自由组织的手机端内容 -->
+</article>
+```
+
+自由模式下：
+- 不强制使用 `article-theme`、`style-skin-*`、`wx-section-card` 这套结构
+- 可以自由命名 class，也可以完全自己写 `<style>`
+- 可以选用 `assets/free-base.css` 已提供的轻 helper class，但**不是必须**
+- 建议优先使用这些可选 helper：
+  - `tp-free-shell`
+  - `tp-free-hero`
+  - `tp-free-kicker`
+  - `tp-free-panel`
+  - `tp-free-grid`
+  - `tp-free-stat`
+  - `tp-free-quote`
+  - `tp-free-note`
+  - `tp-free-divider`
+  - `tp-free-table-wrap`
+- 若当前自由模式抽卡数大于 `1`，则需要生成多个完整版本，视觉方向必须明显不同；输出文件名应使用 `-v1`、`-v2`、`-v3` 这样的后缀
+
+自由模式必须遵守的底线：
+- 只生成一个 `<article>` 根节点，不包含文档级标签
+- 手机端不能横向滚动
+- 正文最小字号不低于 `15px`
+- 手机端默认单列，短内容区域最多 2 列
+- 图片、SVG、表格都必须自适应宽度
+- 内容必须可读、可编辑、可导出，不能退化成纯海报
+- 禁止 Emoji
+
+#### 如果当前是 `rule` 模式
+
+使用下方固定组件体系和白名单。
+
+**规则模式结构规范：**
 
 你生成的 HTML 必须严格遵循以下结构：
 
@@ -218,7 +313,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 </article>
 ```
 
-**严格 class 名白名单 — 只允许使用以下 class 名，不要发明不存在的 class：**
+**严格 class 名白名单 — 仅适用于 `rule` 模式。只允许使用以下 class 名，不要发明不存在的 class：**
 
 | class 名 | 用途 | 是否有 CSS |
 |-----------|------|-----------|
@@ -256,7 +351,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 ---
 
-**必须遵循的组件模板（逐字复制结构，只替换文字内容）：**
+**必须遵循的组件模板（仅适用于 `rule` 模式；逐字复制结构，只替换文字内容）：**
 
 #### Hero 模板（每篇文章必须有且仅有一个）
 
@@ -374,7 +469,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 ---
 
-**生成前必须完成的检查清单：**
+**生成前必须完成的检查清单（`rule` 模式）：**
 
 - [ ] 只生成 `<article>` 内的 HTML，不包含 `<!DOCTYPE>`、`<html>`、`<head>`、`<body>`
 - [ ] 所有 class 名都在上方白名单中
@@ -392,6 +487,18 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - [ ] `wx-quote-card` 是 `<blockquote>` 标签，不是 `<div>`
 - [ ] 没有把 `aurora-glass`、`Skill Demo`、`preset-id`、"我可以继续" 这类内部元信息写进用户可见正文
 - [ ] `wx-inline-graphic` / `wx-badge-art` 不是“空白占位块”，而是有清晰可见的视觉内容
+
+**生成前必须完成的检查清单（`free` 模式）：**
+
+- [ ] 只生成 `<article>` 内的 HTML，不包含 `<!DOCTYPE>`、`<html>`、`<head>`、`<body>`
+- [ ] 根节点带有 `data-ui-mode="free"`
+- [ ] 页面在 390-430px 宽度下可读，不出现横向滚动
+- [ ] 正文字号不低于 `15px`
+- [ ] 默认单列，短内容区域最多 2 列
+- [ ] 图片、SVG、表格都不会溢出容器
+- [ ] 没有 Emoji
+- [ ] 页面不是纯海报，仍然具备明确的信息层级和可编辑正文
+- [ ] 如果一次生成多个版本，各版本的视觉方向必须明显不同，而不是只换配色
 
 **排版要点：**
 - 正文字号 17px，已为手机优化
@@ -421,6 +528,9 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 **审美设计规范（确保高品质输出）：**
 
 以下规范旨在确保即使模型能力较低，也能生成审美高级的 HTML 页面：
+
+- `rule` 模式：下方涉及 `wx-*` 组件、hero mesh、section icon 的要求按字面执行
+- `free` 模式：下方规范主要作为审美原则；凡是涉及固定组件名的条目，都可以用你自定义的等价结构实现
 
 1. **配色纪律** — 严格使用预设 CSS 变量（`--accent`, `--accent-strong`, `--accent-soft`, `--text-main`, `--text-muted` 等），不要自行发明颜色值。预设变量经过专业设计师调色，保证色彩和谐。唯一的例外是在 `<style>` 块中使用 `var()` 引用这些变量做渐变/阴影。
 
@@ -500,14 +610,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
    - luxe：更像品牌视觉稿，强调留白、精致和装饰感
    - neon / mono-dark：更像夜间封面，强调光晕、反差和轮廓
 
-15. **每篇至少做 2 个“记忆点”** — 所谓记忆点，是指读者看完后能明显记住的视觉动作，例如：
-   - 一个不对称的 hero 构图
-   - 一组非常有辨识度的分隔线或印章
-   - 一张做得像数据展板的指标区
-   - 一段像杂志引页的引言区
-   - 一个明显区别于正文卡片的总结收束区
-
-16. **产品型 / 工具型内容要“展示结果”** — 如果文章本身在介绍一个产品、技能或方法，不要只解释它能做什么，还要至少做出一个“结果证明区”：
+15. **产品型 / 工具型内容要“展示结果”** — 如果文章本身在介绍一个产品、技能或方法，不要只解释它能做什么，还要至少做出一个“结果证明区”：
    - 工作流图
    - 输出前后对比
    - 使用场景面板
@@ -519,9 +622,9 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - **标题**：CSS 只设了 font-family 和 line-height，**h1/h2 的 font-size、颜色、装饰效果完全自由**。鼓励使用 inline style 或 `<style>` 块设计大号标题、渐变色文字、文字阴影等
 - **SVG**：鼓励**根据内容主题自行设计 SVG 图形**——几何图案、抽象装饰、图标插画等。不要只用内置 SVG，发挥创造力。自行设计的 SVG 应使用 `currentColor` 或 CSS 变量，确保与主题配色一致
 - **`<style>` 块**：可以在 `<article>` 开头加 `<style>` 块设置该文章独有的样式（动画、渐变、伪元素装饰等）
-- **Hero 创意**：不限于"眉标+标题+描述"模板。可以做全幅渐变、大字排版、SVG 背景、几何构图、任何创意布局。但必须保留 `wx-hero-card` 外层 class 和 `wx-hero-mesh` SVG 背景
+- **Hero 创意**：不限于"眉标+标题+描述"模板。可以做全幅渐变、大字排版、SVG 背景、几何构图、任何创意布局；`rule` 模式保留 `wx-hero-card` / `wx-hero-mesh`，`free` 模式则可以完全自定义 hero 结构
 - **整体风格**：每篇文章都应该有独特的视觉个性，展现设计品味
-- **注意**：hero 背景装饰（`.wx-hero-mesh`）会自动设为 `z-index:0`，内容文字会在其上方，不会被遮挡。但自定义的 SVG 背景装饰也要注意 z-index 和 pointer-events
+- **注意**：`rule` 模式的 hero 背景装饰（`.wx-hero-mesh`）会自动设为 `z-index:0`，内容文字会在其上方；`free` 模式的自定义背景装饰也要注意 z-index 和 pointer-events
 
 **CSS 兼容性要求（导出安全）：**
 - **禁止使用 `color-mix()`**——html2canvas 不支持，会导致导出失败
@@ -558,11 +661,19 @@ node $SKILL_DIR/scripts/render-image.js /tmp/article.html \
   --logo-subtitle "副标题"
 ```
 
+如果当前是 `free` 模式且抽卡数大于 `1`，则需要为每个版本分别保存临时文件并渲染，例如：
+
+```bash
+node $SKILL_DIR/scripts/render-image.js /tmp/article-v1.html --output ~/Desktop --preset {preset-id}
+node $SKILL_DIR/scripts/render-image.js /tmp/article-v2.html --output ~/Desktop --preset {preset-id}
+```
+
 ### Step 6: 交付
 
 告诉用户：
 1. HTML 网页文件路径 — 在浏览器中打开即可查看和编辑
-2. 提供修改建议（换预设、调排版、加图片等）
+2. 如果是 `free` 模式多版本输出，要清楚标注每个版本的视觉方向差异
+3. 提供修改建议（换预设、调排版、加图片等）
 
 生成的 HTML 网页文件**内置编辑器**：
 - 直接在浏览器中点击文字即可编辑
@@ -595,7 +706,7 @@ node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--l
 - `{name}-page.html` — 自包含可编辑网页（始终生成）
 - `{name}.png` 或 `{name}_01.png` ... — PNG 图片（仅 --png 时）
 
-## 32 套预设速查
+## 36 套预设速查
 
 | ID | 名称 | 皮肤 | 适用 |
 |----|------|------|------|

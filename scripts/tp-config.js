@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { loadSettings, saveSettings, SETTINGS_PATH } = require("./settings");
+const { loadSettings, normalizeFreeVariants, saveSettings, SETTINGS_PATH } = require("./settings");
 
 function printUsage() {
   console.log([
@@ -10,6 +10,8 @@ function printUsage() {
     "  node tp-config.js logo off",
     "  node tp-config.js logo title <text>",
     "  node tp-config.js logo subtitle <text>",
+    "  node tp-config.js ui rule",
+    "  node tp-config.js ui free [count]",
   ].join("\n"));
 }
 
@@ -18,6 +20,7 @@ function printSettings() {
   console.log(JSON.stringify({
     settings_path: SETTINGS_PATH,
     logo: settings.logo,
+    ui: settings.ui,
   }, null, 2));
 }
 
@@ -37,40 +40,62 @@ function main() {
     return;
   }
 
-  if (args[0] !== "logo" || args.length < 2) {
-    printUsage();
-    process.exit(1);
-  }
-
   const settings = loadSettings();
-  const action = args[1];
 
-  if (action === "on") {
-    settings.logo.enabled = true;
-    saveSettings(settings);
-    console.log("Logo banner enabled.");
-    return;
+  if (args[0] === "logo") {
+    if (args.length < 2) {
+      printUsage();
+      process.exit(1);
+    }
+
+    const action = args[1];
+
+    if (action === "on") {
+      settings.logo.enabled = true;
+      saveSettings(settings);
+      console.log("Logo banner enabled.");
+      return;
+    }
+
+    if (action === "off") {
+      settings.logo.enabled = false;
+      saveSettings(settings);
+      console.log("Logo banner disabled.");
+      return;
+    }
+
+    if (action === "title") {
+      settings.logo.title = requireValue(args.slice(2).join(" "), "logo title");
+      saveSettings(settings);
+      console.log(`Logo title set to: ${settings.logo.title}`);
+      return;
+    }
+
+    if (action === "subtitle") {
+      settings.logo.subtitle = requireValue(args.slice(2).join(" "), "logo subtitle");
+      saveSettings(settings);
+      console.log(`Logo subtitle set to: ${settings.logo.subtitle}`);
+      return;
+    }
   }
 
-  if (action === "off") {
-    settings.logo.enabled = false;
-    saveSettings(settings);
-    console.log("Logo banner disabled.");
-    return;
-  }
+  if (args[0] === "ui") {
+    const action = args[1];
 
-  if (action === "title") {
-    settings.logo.title = requireValue(args.slice(2).join(" "), "logo title");
-    saveSettings(settings);
-    console.log(`Logo title set to: ${settings.logo.title}`);
-    return;
-  }
+    if (action === "rule") {
+      settings.ui.mode = "rule";
+      saveSettings(settings);
+      console.log("UI mode set to: rule");
+      return;
+    }
 
-  if (action === "subtitle") {
-    settings.logo.subtitle = requireValue(args.slice(2).join(" "), "logo subtitle");
-    saveSettings(settings);
-    console.log(`Logo subtitle set to: ${settings.logo.subtitle}`);
-    return;
+    if (action === "free") {
+      settings.ui.mode = "free";
+      settings.ui.free_variants = normalizeFreeVariants(args[2]);
+      saveSettings(settings);
+      console.log(`UI mode set to: free (${settings.ui.free_variants} variant${settings.ui.free_variants > 1 ? "s" : ""})`);
+      return;
+    }
   }
 
   printUsage();

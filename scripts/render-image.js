@@ -27,6 +27,7 @@ const { loadSettings } = require("./settings");
 
 const SKILL_DIR = path.resolve(__dirname, "..");
 const CSS_PATH = path.join(SKILL_DIR, "assets", "article-theme.css");
+const FREE_CSS_PATH = path.join(SKILL_DIR, "assets", "free-base.css");
 const PRESETS_PATH = path.join(SKILL_DIR, "assets", "presets.json");
 
 function parseArgs(argv) {
@@ -376,7 +377,7 @@ function buildLogoHtml(logoOptions) {
 </div>`;
 }
 
-function buildStandalonePage(htmlContent, cssContent, cssVarsBlock, preset, logoHtml) {
+function buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml) {
   const editorJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'editor.js'), 'utf-8');
   // Sanitize: html2canvas.min.js may contain literal "</script>" which breaks inline embedding
   const html2canvasJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'html2canvas.min.js'), 'utf-8')
@@ -392,7 +393,7 @@ function buildStandalonePage(htmlContent, cssContent, cssVarsBlock, preset, logo
 :root {
 ${cssVarsBlock}
 }
-${cssContent}
+${cssBundle}
 </style>
 </head>
 <body class="article-page">
@@ -406,7 +407,7 @@ ${htmlContent}
 </html>`;
 }
 
-function buildExportPage(htmlContent, cssContent, cssVarsBlock, logoHtml) {
+function buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml) {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -418,7 +419,7 @@ body { margin: 0; padding: 0; }
 :root {
 ${cssVarsBlock}
 }
-${cssContent}
+${cssBundle}
 </style>
 </head>
 <body>
@@ -587,7 +588,10 @@ async function main() {
 
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-  const cssContent = fs.readFileSync(CSS_PATH, "utf-8");
+  const cssBundle = [
+    fs.readFileSync(CSS_PATH, "utf-8"),
+    fs.readFileSync(FREE_CSS_PATH, "utf-8"),
+  ].join("\n\n");
   const presetsData = JSON.parse(fs.readFileSync(PRESETS_PATH, "utf-8"));
   const rawHtmlContent = fs.readFileSync(htmlPath, "utf-8");
   const { html: inputArticleHtml, hadOuterDocument } = sanitizeArticleFragment(rawHtmlContent);
@@ -617,14 +621,14 @@ async function main() {
   }
 
   // 1. Always output standalone HTML page
-  const standaloneHtml = buildStandalonePage(htmlContent, cssContent, cssVarsBlock, preset, logoHtml);
+  const standaloneHtml = buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml);
   const htmlOutPath = path.join(outputDir, `${baseName}-page.html`);
   fs.writeFileSync(htmlOutPath, standaloneHtml, "utf-8");
   console.log(`HTML page: ${htmlOutPath}`);
 
   // 2. Optionally export PNG
   if (wantPng) {
-    const exportHtml = buildExportPage(htmlContent, cssContent, cssVarsBlock, logoHtml);
+    const exportHtml = buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml);
     await exportPng(exportHtml, outputDir, baseName, sliceHeight);
   }
 }

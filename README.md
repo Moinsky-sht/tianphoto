@@ -2,7 +2,7 @@
 
 将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
 
-当前版本：`v1.5.2`
+当前版本：`v1.6.0`
 
 ## 30 秒快速开始
 
@@ -19,6 +19,13 @@ node scripts/tp-config.js logo subtitle "副标题"
 ```
 
 7. 生成后直接打开桌面上的 `*-page.html`，可继续编辑或导出 PNG。
+8. 如果你想切换 UI 策略：
+
+```bash
+node scripts/tp-config.js ui rule
+node scripts/tp-config.js ui free 2
+node scripts/tp-doctor.js
+```
 
 ### OpenClaw 用法
 
@@ -67,11 +74,15 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 在 Claude Code 中输入以下指令即可触发：
 
 - `/tp` — 启动 Tianphoto
-- `/tp style list` — 查看 32 套预设风格
+- `/tp style list` — 查看 36 套预设风格
 - `/tp style <preset-id>` — 指定风格（如 `aurora-glass`）
 - `/tp select auto` — 自动判断内容详略（默认）
 - `/tp select full` — 完整保留原文内容
 - `/tp select compact` — 紧凑压缩模式
+- `/tp ui rule` — 强结构、强组件、稳定交付
+- `/tp ui free` — 自由抽卡模式，默认输出 2 个方向
+- `/tp ui free <count>` — 自由抽卡模式，最多 5 个版本
+- `/tp doctor` — 检查当前版本、UI 模式、logo、Chrome 与基础环境
 - `/tp logo on` — 启用品牌 Logo
 - `/tp logo title <text>` — 设置品牌横幅标题
 - `/tp logo subtitle <text>` — 设置品牌横幅副标题
@@ -91,11 +102,14 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 - **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片
 - **一键导出** — 按卡片智能切片导出 PNG（所见即所得）
 - **自动封面** — 导出时自动生成公众号 2.35:1 头条封面图
-- **32 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
+- **36 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
 - **智能内容模式** — auto/full/compact 三档，自动识别文章类型适配详略
+- **双 UI 模式** — `rule` 走稳定组件化，`free` 走手机端自由构建
+- **自由抽卡** — `free` 模式默认一次出 2 版，可提高到 5 版
 - **Logo 支持** — 在 `logos/` 目录放入 `brand-logo.png` 即可启用品牌横幅
 - **结构校验** — 自动清洗误传的完整 HTML 页面，避免重复包裹导致坏结构
 - **本地配置** — logo 标题、副标题、开关写入本地配置，重复使用更稳定
+- **Doctor 自检** — 一条命令查看当前版本、模式、logo、Chrome、预设数和页面诊断
 - **飞书友好** — 适合把飞书文档、周报、通知、复盘转成手机端更好读的网页或长图
 
 ## 预设风格速查
@@ -108,7 +122,7 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 | dawn-journal | 曦白札记 | 知识、观点 |
 | jade-zen | 青玉留白 | 禅意阅读 |
 | pearl-board | 珍珠简报 | 品牌商业 |
-| ... | 共 32 套 | `/tp style list` 查看全部 |
+| ... | 共 36 套 | `/tp style list` 查看全部 |
 
 ## 目录结构
 
@@ -120,14 +134,16 @@ tianphoto/
 ├── local-settings.json # 本地配置（自动生成，默认不提交）
 ├── assets/
 │   ├── article-theme.css   # 文章主题样式
+│   ├── free-base.css       # 自由模式轻底盘
 │   ├── editor.js           # 内置编辑器 + 导出引擎
 │   ├── html2canvas.min.js  # 渲染依赖
-│   └── presets.json        # 32 套预设配置
+│   └── presets.json        # 36 套预设配置
 ├── scripts/
 │   ├── render-image.js     # 渲染脚本（PNG 导出需 puppeteer-core）
 │   ├── fetch-content.js    # URL 内容抓取
 │   ├── settings.js         # 本地配置读写
-│   └── tp-config.js        # Logo 标题/副标题/开关设置
+│   ├── tp-config.js        # Logo / UI 模式设置
+│   └── tp-doctor.js        # 本地环境和页面诊断
 ├── references/
 │   ├── html-components.md  # HTML 组件文档
 │   └── content-types.md    # 内容类型参考
@@ -158,6 +174,14 @@ git status --short
 ```
 
 ## 更新日志
+
+### v1.6.0
+
+- 新增 `/tp ui rule` 与 `/tp ui free [count]`，把内容模式和 UI 模式彻底拆开
+- 新增自由模式轻底盘 `free-base.css`，让 AI 可以在手机视觉约束内更自由地组织前端页面
+- 新增 `/tp doctor` 诊断命令，可查看当前版本、UI 模式、logo、Chrome、预设数与可选页面诊断
+- 本地设置持久化新增 `ui.mode` 与 `ui.free_variants`，默认自由模式一次抽卡 2 版，最大 5 版
+- 更新 skill 主文档，优先识别 `ui / doctor` 指令，并补齐 `rule / free` 双工作流说明
 
 ### v1.5.2
 

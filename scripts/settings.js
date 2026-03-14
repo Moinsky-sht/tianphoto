@@ -9,7 +9,18 @@ const DEFAULT_SETTINGS = Object.freeze({
     title: "品牌名称",
     subtitle: "品牌描述",
   },
+  ui: {
+    mode: "rule",
+    free_variants: 2,
+    max_free_variants: 5,
+  },
 });
+
+function normalizeFreeVariants(value, fallback = DEFAULT_SETTINGS.ui.free_variants) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(DEFAULT_SETTINGS.ui.max_free_variants, Math.max(1, parsed));
+}
 
 function mergeSettings(userSettings = {}) {
   return {
@@ -18,6 +29,13 @@ function mergeSettings(userSettings = {}) {
     logo: {
       ...DEFAULT_SETTINGS.logo,
       ...(userSettings.logo || {}),
+    },
+    ui: {
+      ...DEFAULT_SETTINGS.ui,
+      ...(userSettings.ui || {}),
+      mode: userSettings.ui?.mode === "free" ? "free" : DEFAULT_SETTINGS.ui.mode,
+      free_variants: normalizeFreeVariants(userSettings.ui?.free_variants),
+      max_free_variants: DEFAULT_SETTINGS.ui.max_free_variants,
     },
   };
 }
@@ -40,5 +58,6 @@ module.exports = {
   SETTINGS_PATH,
   loadSettings,
   mergeSettings,
+  normalizeFreeVariants,
   saveSettings,
 };
