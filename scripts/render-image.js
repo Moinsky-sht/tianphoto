@@ -141,8 +141,70 @@ function getArticleSkin(htmlContent) {
   return match ? match[3] : null;
 }
 
+function getArticleFamily(htmlContent) {
+  const match = htmlContent.match(/data-style-family=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleArchetype(htmlContent) {
+  const match = htmlContent.match(/data-style-archetype=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
 function getArticleUiMode(htmlContent) {
   return /data-ui-mode=(['"])free\1/i.test(htmlContent) ? "free" : "rule";
+}
+
+function upsertAttribute(attrs, name, value) {
+  const sanitizedValue = escapeHtml(String(value));
+  const regex = new RegExp(`\\s${name}=(['"])[^'"]*\\1`, "i");
+  if (regex.test(attrs)) {
+    return attrs.replace(regex, ` ${name}="${sanitizedValue}"`);
+  }
+  return `${attrs} ${name}="${sanitizedValue}"`;
+}
+
+function upsertClassTokens(attrs, tokens, replaceMatchers = []) {
+  const classMatch = attrs.match(/\sclass=(['"])([^'"]*)\1/i);
+  const existingTokens = classMatch
+    ? classMatch[2].split(/\s+/).map((token) => token.trim()).filter(Boolean)
+    : [];
+
+  const filtered = existingTokens.filter((token) => (
+    !replaceMatchers.some((matcher) => matcher.test(token))
+    && !tokens.includes(token)
+  ));
+  const nextTokens = [...tokens.filter(Boolean), ...filtered];
+  const classAttr = ` class="${nextTokens.join(" ")}"`;
+
+  if (classMatch) {
+    return attrs.replace(/\sclass=(['"])[^'"]*\1/i, classAttr);
+  }
+  return `${attrs}${classAttr}`;
+}
+
+function applyPresetMetadata(htmlContent, preset) {
+  return htmlContent.replace(/<article\b([^>]*)>/i, (match, attrs) => {
+    let nextAttrs = attrs;
+    nextAttrs = upsertAttribute(nextAttrs, "data-preset", preset.id);
+
+    if (preset.family) {
+      nextAttrs = upsertAttribute(nextAttrs, "data-style-family", preset.family);
+    }
+    if (preset.archetype) {
+      nextAttrs = upsertAttribute(nextAttrs, "data-style-archetype", preset.archetype);
+    }
+
+    if (getArticleUiMode(match) !== "free") {
+      nextAttrs = upsertClassTokens(
+        nextAttrs,
+        ["article-theme", `style-skin-${preset.skin}`],
+        [/^style-skin-[a-z-]+$/]
+      );
+    }
+
+    return `<article${nextAttrs}>`;
+  });
 }
 
 function collectFreeHelperClasses(htmlContent) {
@@ -171,8 +233,29 @@ function listHardcodedColorTokens(htmlContent) {
 
 function pickDividerStrategy(htmlContent, preset) {
   const skin = getArticleSkin(htmlContent);
+  const family = preset?.family || getArticleFamily(htmlContent);
   const presetId = preset?.id || "";
   const isEditorialNewsPreset = /(journal|brief|report|bulletin|digest|briefing)/i.test(presetId);
+
+  if (["swiss-journal", "field-atlas", "brief-bulletin", "skyline-pane"].includes(family)) {
+    return { mode: "remove", reason: family };
+  }
+
+  if (["ops-console", "neon-signal"].includes(family)) {
+    return { mode: "replace", variant: "chevron-band" };
+  }
+
+  if (["poster-brutal", "night-gallery"].includes(family)) {
+    return { mode: "replace", variant: "fold-divider" };
+  }
+
+  if (["archive-paper", "salon-luxe", "ledger-spec"].includes(family)) {
+    return { mode: "replace", variant: "editorial-notch" };
+  }
+
+  if (["deck-story", "play-lab", "aurora-drift"].includes(family)) {
+    return { mode: "replace", variant: "soft-stars" };
+  }
 
   if (["editorial", "magazine"].includes(skin) || isEditorialNewsPreset) {
     return { mode: "remove", reason: "editorial-news" };
@@ -323,6 +406,7 @@ function validateDecorativeGraphics(htmlContent) {
 function validateDividerOrnaments(htmlContent) {
   const dividerBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
   const skin = getArticleSkin(htmlContent);
+  const family = getArticleFamily(htmlContent);
 
   if (dividerBlocks.length > 2) {
     throw new Error(
@@ -339,7 +423,7 @@ function validateDividerOrnaments(htmlContent) {
     );
   }
 
-  if (skin === "editorial" && dividerBlocks.length > 0) {
+  if ((skin === "editorial" || ["swiss-journal", "field-atlas", "brief-bulletin", "skyline-pane"].includes(family)) && dividerBlocks.length > 0) {
     throw new Error(
       "Divider guard: editorial/news layouts should not rely on decorative dividers. " +
       "Use card spacing, headings, and section rhythm instead."
@@ -644,7 +728,8 @@ async function main() {
   const rawHtmlContent = fs.readFileSync(htmlPath, "utf-8");
   const { html: inputArticleHtml, hadOuterDocument } = sanitizeArticleFragment(rawHtmlContent);
   const preset = loadPreset(presetsData, args.preset, inputArticleHtml);
-  const dividerNormalization = normalizeDividerOrnaments(inputArticleHtml, preset);
+  const normalizedArticleHtml = applyPresetMetadata(inputArticleHtml, preset);
+  const dividerNormalization = normalizeDividerOrnaments(normalizedArticleHtml, preset);
   const htmlContent = dividerNormalization.html;
   validateArticleDesign(htmlContent);
   const allVars = { ...presetsData.baseVars, ...preset.vars };

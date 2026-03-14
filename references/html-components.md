@@ -7,7 +7,7 @@
 ## 根结构
 
 ```html
-<article class="article-theme style-skin-{skin}" data-preset="{preset-id}">
+<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}">
   <div class="wx-article-shell">
     <!-- 组件在此处排列 -->
   </div>
@@ -15,6 +15,8 @@
 ```
 
 `{skin}` 取自 presets.json 的 `skin` 字段：`editorial` / `glass` / `brutal` / `neon` / `tech` / `mono` / `luxe` / `magazine` / `soft` / `luxe-dark` / `mono-dark`。
+
+`{family}` 和 `{archetype}` 取自 presets.json 的风格元数据。它们会驱动更明确的家族化版式，不再只是换颜色。
 
 ---
 

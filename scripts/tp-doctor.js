@@ -66,9 +66,25 @@ function readVersion() {
   return JSON.parse(fs.readFileSync(VERSION_PATH, "utf-8")).version;
 }
 
+function extractTagInnerHtml(htmlContent, tagName) {
+  const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
+  const match = htmlContent.match(pattern);
+  return match ? match[1].trim() : null;
+}
+
+function extractFirstArticle(htmlContent) {
+  const match = htmlContent.match(/<article\b[\s\S]*?<\/article>/i);
+  return match ? match[0].trim() : null;
+}
+
 function readPresetCount() {
   const presets = JSON.parse(fs.readFileSync(PRESETS_PATH, "utf-8"));
-  return Array.isArray(presets.presets) ? presets.presets.length : 0;
+  const entries = Array.isArray(presets.presets) ? presets.presets : [];
+  return {
+    preset_count: entries.length,
+    family_count: new Set(entries.map((entry) => entry.family).filter(Boolean)).size,
+    archetype_count: new Set(entries.map((entry) => entry.archetype).filter(Boolean)).size,
+  };
 }
 
 function diagnoseHtml(htmlPath) {
@@ -78,8 +94,10 @@ function diagnoseHtml(htmlPath) {
   }
 
   const raw = fs.readFileSync(absolutePath, "utf-8");
-  const articleCount = (raw.match(/<article\b/gi) || []).length;
-  const dividerCount = (raw.match(/wx-divider-ornament/gi) || []).length;
+  const bodyOrRaw = extractTagInnerHtml(raw, "body") || raw;
+  const articleHtml = extractFirstArticle(bodyOrRaw) || bodyOrRaw;
+  const articleCount = (articleHtml.match(/<article\b/gi) || []).length;
+  const dividerCount = (articleHtml.match(/wx-divider-ornament/gi) || []).length;
   const freeHelpers = [
     "tp-free-shell",
     "tp-free-hero",
@@ -91,16 +109,16 @@ function diagnoseHtml(htmlPath) {
     "tp-free-note",
     "tp-free-divider",
     "tp-free-table-wrap",
-  ].filter((className) => new RegExp(`\\b${className}\\b`).test(raw));
-  const hardcodedColorTokens = [...raw.matchAll(/#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g)]
+  ].filter((className) => new RegExp(`\\b${className}\\b`).test(articleHtml));
+  const hardcodedColorTokens = [...articleHtml.matchAll(/#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g)]
     .map((match) => match[0].toLowerCase())
     .filter((token) => !["#fff", "#ffffff", "#000", "#000000"].includes(token))
     .filter((token, index, array) => array.indexOf(token) === index);
-  const gridMatches = [...raw.matchAll(/grid-template-columns\s*:\s*([^;"]+)/gi)];
+  const gridMatches = [...articleHtml.matchAll(/grid-template-columns\s*:\s*([^;"]+)/gi)];
   const riskyGrids = gridMatches
     .map((match) => match[1].trim())
     .filter((template) => /repeat\(\s*[3-9]\s*,/i.test(template) || /\b1fr\b.*\b1fr\b.*\b1fr\b/i.test(template));
-  const uiMode = /data-ui-mode=(['"])free\1/i.test(raw) ? "free" : "rule";
+  const uiMode = /data-ui-mode=(['"])free\1/i.test(articleHtml) ? "free" : "rule";
   const freeModeOk = uiMode !== "free" || freeHelpers.length > 0;
 
   return {
@@ -109,7 +127,9 @@ function diagnoseHtml(htmlPath) {
     article_count: articleCount,
     has_document_tags: /<(?:html|head|body)\b/i.test(raw),
     ui_mode: uiMode,
-    preset: raw.match(/data-preset=(['"])([^'"]+)\1/i)?.[2] || null,
+    preset: articleHtml.match(/data-preset=(['"])([^'"]+)\1/i)?.[2] || null,
+    style_family: articleHtml.match(/data-style-family=(['"])([^'"]+)\1/i)?.[2] || null,
+    style_archetype: articleHtml.match(/data-style-archetype=(['"])([^'"]+)\1/i)?.[2] || null,
     divider_count: dividerCount,
     uses_free_helpers: freeHelpers.length > 0,
     free_helpers_found: freeHelpers,
@@ -122,6 +142,7 @@ function main() {
   const args = process.argv.slice(2);
   const settings = loadSettings();
   const htmlDiagnosis = args[0] ? diagnoseHtml(args[0]) : null;
+  const presetCounts = readPresetCount();
 
   console.log(JSON.stringify({
     skill_dir: SKILL_DIR,
@@ -136,7 +157,7 @@ function main() {
       found: !!findChrome(),
       path: findChrome(),
     },
-    preset_count: readPresetCount(),
+    ...presetCounts,
     html_diagnosis: htmlDiagnosis,
   }, null, 2));
 }

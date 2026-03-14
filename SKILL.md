@@ -239,14 +239,25 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - **默认采用 helpers-first 起手**：优先使用 `tp-free-*` 基础组件搭骨架，再用自定义 class 做增强
 - **默认采用 variables-first 配色**：优先使用 preset CSS 变量，不要大量硬编码主题色
 
-### Step 2: 识别内容主题 → 选预设
+### Step 2: 识别内容主题 → 选风格家族 → 选预设
 
-参考 `references/content-types.md`，分析内容类型。如果用户用 `/tp style` 指定了预设则直接使用，否则自动匹配。
+先参考 `references/content-types.md` 判断内容类型，再参考 `references/style-families.md` 先选 `family`，最后才落到具体 `preset`。如果用户用 `/tp style` 指定了预设则直接使用，但仍然要识别它属于哪个 family，并按该 family 的版式人格执行。
 
-- 在 `rule` 模式下，preset 代表**版式系统 + 色彩气质 + 组件习惯**
-- 在 `free` 模式下，preset 代表**色盘 + 气质锚点 + 视觉语气**，不是硬模板
+选择顺序必须是：
 
-告诉用户选了什么预设及理由。
+1. 这篇内容属于什么主题 / 阅读气质
+2. 最适合哪个 `style family`
+3. 该 family 里哪一个 `preset` 最合适
+4. 最后补一句视觉执行方向
+
+额外要求：
+
+- 不要只因为喜欢某个颜色就选 preset
+- `rule` 模式下，preset 代表**版式系统 + 色彩气质 + 组件习惯**
+- `free` 模式下，preset 代表**色盘 + 气质锚点 + 视觉语气**，但 family 仍然决定构图方向
+- 同一个 skin 下的 preset，也必须因为 family / archetype 不同而长得不一样
+
+告诉用户选了什么 family、什么 preset，以及理由。
 并且在开始生成前，必须再为这篇内容补一句**明确的视觉方向描述**，例如：
 - “走杂志社论感，重点做大标题、留白和纸面纹理”
 - “走科技发布感，重点做冷色渐变、发光边缘和数据面板”
@@ -270,7 +281,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 使用**自由模式根结构**，不要硬套 `wx-*` 白名单组件：
 
 ```html
-<article data-ui-mode="free" data-preset="{preset-id}">
+<article data-ui-mode="free" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}">
   <style>
     /* 当前页面自己的视觉系统 */
   </style>
@@ -283,6 +294,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 可以自由命名 class，也可以完全自己写 `<style>`
 - 可以选用 `assets/free-base.css` 已提供的轻 helper class，但**第一版默认应当先站在这些 helper 上**
 - 先阅读 `references/free-mode.md`，再开始自由排版
+- 再阅读 `references/style-families.md`，按 family 决定自由模式的构图人格，不要随机乱抽
 - 建议优先使用这些 helper：
   - `tp-free-shell`
   - `tp-free-hero`
@@ -298,6 +310,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 颜色优先使用 `var(--accent)`、`var(--accent-strong)`、`var(--accent-soft)`、`var(--text-main)`、`var(--text-muted)`、`var(--hero-grad-a)`、`var(--hero-grad-b)`、`var(--hero-fade)`
 - 允许使用 `rgba(255,255,255,...)` 和 `rgba(0,0,0,...)` 做覆盖层，但不要大面积硬编码品牌色十六进制
 - 若当前自由模式抽卡数大于 `1`，则需要生成多个完整版本，视觉方向必须明显不同；输出文件名应使用 `-v1`、`-v2`、`-v3` 这样的后缀
+- 自由模式的差异不应只靠换色。至少要在 hero 构图、卡片语法、标签样式、panel 节奏里明显变化
 
 自由模式必须遵守的底线：
 - 只生成一个 `<article>` 根节点，不包含文档级标签
@@ -318,7 +331,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 你生成的 HTML 必须严格遵循以下结构：
 
 ```html
-<article class="article-theme style-skin-{skin}" data-preset="{preset-id}">
+<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}">
   <div class="wx-article-shell">
     <!-- 所有内容组件依次排列在这里 -->
   </div>
@@ -484,6 +497,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 **生成前必须完成的检查清单（`rule` 模式）：**
 
 - [ ] 只生成 `<article>` 内的 HTML，不包含 `<!DOCTYPE>`、`<html>`、`<head>`、`<body>`
+- [ ] 根节点带有正确的 `data-preset`、`data-style-family`、`data-style-archetype`
 - [ ] 所有 class 名都在上方白名单中
 - [ ] 有且仅有一个 `wx-hero-card`，且包含 `wx-hero-mesh` SVG 背景
 - [ ] 每个 `wx-section-card` 都有 `wx-section-top` > `wx-section-icon`（含 SVG）+ `wx-section-heading`
@@ -504,6 +518,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 - [ ] 只生成 `<article>` 内的 HTML，不包含 `<!DOCTYPE>`、`<html>`、`<head>`、`<body>`
 - [ ] 根节点带有 `data-ui-mode="free"`
+- [ ] 根节点带有正确的 `data-preset`、`data-style-family`、`data-style-archetype`
 - [ ] 页面在 390-430px 宽度下可读，不出现横向滚动
 - [ ] 正文字号不低于 `15px`
 - [ ] 默认单列，短内容区域最多 2 列
@@ -595,6 +610,8 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
    - 不要把所有内容堆在一两个巨型 card 里
 
 10. **风格必须可辨认** — 输出不应只是“统一模板 + 换主题色”。每次生成都要先决定一个足够鲜明的视觉人格，并让它贯穿标题、边框、卡片密度、SVG 语言和节奏编排。
+
+    先看 `references/style-families.md`，先定 family，再定 preset。
 
 11. **预设差异要落到版式** — 不同预设之间至少应在以下 3 项里有明显变化：
    - Hero 构图方式（居中、偏置、海报式、刊物式）

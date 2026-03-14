@@ -96,6 +96,38 @@
 </article>
 ```
 
+## 按家族起手
+
+不要把 `free` 理解成“完全随机”。更稳的方式是先按 `family` 抽一个大方向：
+
+- `swiss-journal`
+  关键词：细边、留白、线性栏目感
+  起手：`tp-free-hero + 2 个 tp-free-panel + 1 个 tp-free-quote`
+- `archive-paper`
+  关键词：档案页、纸本副刊、展签
+  起手：framed hero + dossier panel + 注释块
+- `aurora-drift`
+  关键词：发光、玻片、漂浮渐变
+  起手：luminous hero + 2 列 stat + glow panels
+- `ops-console`
+  关键词：metric-first、grid、command board
+  起手：数据 hero + `tp-free-grid cols-2` + 多个 panel
+- `brief-bulletin`
+  关键词：快报、扫读、轻资讯
+  起手：短 hero + 1 组 stat + 多个简短 panel
+- `salon-luxe`
+  关键词：封面、陈列、沙龙
+  起手：framed hero + quote + 2 个长 panel
+- `neon-signal`
+  关键词：HUD、霓虹、信号感
+  起手：dark hero + signal stats + console note
+- `poster-brutal`
+  关键词：粗边、标签、海报块面
+  起手：硬标签 hero + 大段落 panel + 对比 stat
+- `play-lab`
+  关键词：bento、跳色、轻拼贴
+  起手：不规则 hero + bento grid + playful notes
+
 ## 反面模式
 
 - 只写一堆完全自定义 class，却完全不用 `tp-free-*`
