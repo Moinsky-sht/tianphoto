@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     mode: "rule",
     free_variants: 2,
     max_free_variants: 5,
+    updated_at: null,
   },
 });
 
@@ -36,6 +37,7 @@ function mergeSettings(userSettings = {}) {
       mode: userSettings.ui?.mode === "free" ? "free" : DEFAULT_SETTINGS.ui.mode,
       free_variants: normalizeFreeVariants(userSettings.ui?.free_variants),
       max_free_variants: DEFAULT_SETTINGS.ui.max_free_variants,
+      updated_at: userSettings.ui?.updated_at || null,
     },
   };
 }

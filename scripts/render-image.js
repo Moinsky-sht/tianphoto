@@ -141,6 +141,34 @@ function getArticleSkin(htmlContent) {
   return match ? match[3] : null;
 }
 
+function getArticleUiMode(htmlContent) {
+  return /data-ui-mode=(['"])free\1/i.test(htmlContent) ? "free" : "rule";
+}
+
+function collectFreeHelperClasses(htmlContent) {
+  const helperClasses = [
+    "tp-free-shell",
+    "tp-free-hero",
+    "tp-free-kicker",
+    "tp-free-panel",
+    "tp-free-grid",
+    "tp-free-stat",
+    "tp-free-quote",
+    "tp-free-note",
+    "tp-free-divider",
+    "tp-free-table-wrap",
+  ];
+
+  return helperClasses.filter((className) => new RegExp(`\\b${className}\\b`).test(htmlContent));
+}
+
+function listHardcodedColorTokens(htmlContent) {
+  return [...htmlContent.matchAll(/#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g)]
+    .map((match) => match[0].toLowerCase())
+    .filter((token) => !["#fff", "#ffffff", "#000", "#000000"].includes(token))
+    .filter((token, index, array) => array.indexOf(token) === index);
+}
+
 function pickDividerStrategy(htmlContent, preset) {
   const skin = getArticleSkin(htmlContent);
   const presetId = preset?.id || "";
@@ -319,10 +347,30 @@ function validateDividerOrnaments(htmlContent) {
   }
 }
 
+function validateFreeModeDesign(htmlContent) {
+  if (getArticleUiMode(htmlContent) !== "free") return;
+
+  const freeHelpers = collectFreeHelperClasses(htmlContent);
+  if (!freeHelpers.includes("tp-free-shell") || freeHelpers.length < 3) {
+    throw new Error(
+      "Free-mode guard: start from tp-free primitives. Use tp-free-shell plus at least two other tp-free-* helpers before adding custom classes."
+    );
+  }
+
+  const hardcodedColors = listHardcodedColorTokens(htmlContent);
+  if (hardcodedColors.length > 0) {
+    throw new Error(
+      `Free-mode guard: found hardcoded theme colors (${hardcodedColors.join(", ")}). ` +
+      "Use preset CSS variables instead of custom hex colors."
+    );
+  }
+}
+
 function validateArticleDesign(htmlContent) {
   validateGridLayouts(htmlContent);
   validateDecorativeGraphics(htmlContent);
   validateDividerOrnaments(htmlContent);
+  validateFreeModeDesign(htmlContent);
 }
 
 function findDefaultLogoPath() {

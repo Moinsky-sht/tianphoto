@@ -84,6 +84,7 @@ function main() {
 
     if (action === "rule") {
       settings.ui.mode = "rule";
+      settings.ui.updated_at = new Date().toISOString();
       saveSettings(settings);
       console.log("UI mode set to: rule");
       return;
@@ -92,6 +93,7 @@ function main() {
     if (action === "free") {
       settings.ui.mode = "free";
       settings.ui.free_variants = normalizeFreeVariants(args[2]);
+      settings.ui.updated_at = new Date().toISOString();
       saveSettings(settings);
       console.log(`UI mode set to: free (${settings.ui.free_variants} variant${settings.ui.free_variants > 1 ? "s" : ""})`);
       return;

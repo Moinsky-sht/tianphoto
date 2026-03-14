@@ -80,19 +80,40 @@ function diagnoseHtml(htmlPath) {
   const raw = fs.readFileSync(absolutePath, "utf-8");
   const articleCount = (raw.match(/<article\b/gi) || []).length;
   const dividerCount = (raw.match(/wx-divider-ornament/gi) || []).length;
+  const freeHelpers = [
+    "tp-free-shell",
+    "tp-free-hero",
+    "tp-free-kicker",
+    "tp-free-panel",
+    "tp-free-grid",
+    "tp-free-stat",
+    "tp-free-quote",
+    "tp-free-note",
+    "tp-free-divider",
+    "tp-free-table-wrap",
+  ].filter((className) => new RegExp(`\\b${className}\\b`).test(raw));
+  const hardcodedColorTokens = [...raw.matchAll(/#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g)]
+    .map((match) => match[0].toLowerCase())
+    .filter((token) => !["#fff", "#ffffff", "#000", "#000000"].includes(token))
+    .filter((token, index, array) => array.indexOf(token) === index);
   const gridMatches = [...raw.matchAll(/grid-template-columns\s*:\s*([^;"]+)/gi)];
   const riskyGrids = gridMatches
     .map((match) => match[1].trim())
     .filter((template) => /repeat\(\s*[3-9]\s*,/i.test(template) || /\b1fr\b.*\b1fr\b.*\b1fr\b/i.test(template));
+  const uiMode = /data-ui-mode=(['"])free\1/i.test(raw) ? "free" : "rule";
+  const freeModeOk = uiMode !== "free" || freeHelpers.length > 0;
 
   return {
     path: absolutePath,
-    ok: articleCount === 1,
+    ok: articleCount === 1 && freeModeOk,
     article_count: articleCount,
     has_document_tags: /<(?:html|head|body)\b/i.test(raw),
-    ui_mode: /data-ui-mode=(['"])free\1/i.test(raw) ? "free" : "rule",
+    ui_mode: uiMode,
     preset: raw.match(/data-preset=(['"])([^'"]+)\1/i)?.[2] || null,
     divider_count: dividerCount,
+    uses_free_helpers: freeHelpers.length > 0,
+    free_helpers_found: freeHelpers,
+    hardcoded_color_tokens: hardcodedColorTokens,
     risky_grid_templates: riskyGrids,
   };
 }

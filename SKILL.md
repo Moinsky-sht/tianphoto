@@ -54,6 +54,10 @@ user_invocable: true
 
 ### `/tp doctor`
 快速检查当前 skill 状态：版本、UI 模式、logo 配置、Chrome 可用性、预设数量等。
+如果附带本地 HTML 文件路径，还会检查：
+- 是否用了 `tp-free-*` helper
+- 是否存在明显的硬编码主题色
+- 是否有危险的 3 列以上网格
 
 ### `/tp logo on`
 启用 Logo 功能。提示用户将 Logo 图片放到以下位置：
@@ -232,6 +236,8 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 默认一次生成 `2` 个不同方向的页面；如果用户指定 `/tp ui free 4`，则生成 `4` 个版本；最大 `5`
 - 仍然必须符合手机视觉、可编辑、可导出、可阅读
 - 这不是“乱做”，而是“底盘固定、设计自由”
+- **默认采用 helpers-first 起手**：优先使用 `tp-free-*` 基础组件搭骨架，再用自定义 class 做增强
+- **默认采用 variables-first 配色**：优先使用 preset CSS 变量，不要大量硬编码主题色
 
 ### Step 2: 识别内容主题 → 选预设
 
@@ -255,6 +261,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 `render-image.js` 现在会在渲染前自动做两层保护：
 - 如果输入的是完整 HTML 页面，会先抽取其中的 `<article>` 片段再继续
 - 如果抽取后仍然存在 `<html>` / `<head>` / `<body>`，或者 `<article>` 根节点不是唯一一个，就直接报错并停止输出
+- 如果是 `free` 模式但完全没有使用 `tp-free-*` 基础件，或大面积硬编码主题色，也会直接报错并要求重做
 
 所以当结构校验失败时，不要硬着头皮继续渲染，应该回到这一步重新生成正确片段。
 
@@ -274,8 +281,9 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 自由模式下：
 - 不强制使用 `article-theme`、`style-skin-*`、`wx-section-card` 这套结构
 - 可以自由命名 class，也可以完全自己写 `<style>`
-- 可以选用 `assets/free-base.css` 已提供的轻 helper class，但**不是必须**
-- 建议优先使用这些可选 helper：
+- 可以选用 `assets/free-base.css` 已提供的轻 helper class，但**第一版默认应当先站在这些 helper 上**
+- 先阅读 `references/free-mode.md`，再开始自由排版
+- 建议优先使用这些 helper：
   - `tp-free-shell`
   - `tp-free-hero`
   - `tp-free-kicker`
@@ -286,6 +294,9 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
   - `tp-free-note`
   - `tp-free-divider`
   - `tp-free-table-wrap`
+- 第一版自由模式至少应使用 `tp-free-shell` 加任意 2 个以上 `tp-free-*` 组件；自定义 class 用来增强，而不是完全绕开 helper
+- 颜色优先使用 `var(--accent)`、`var(--accent-strong)`、`var(--accent-soft)`、`var(--text-main)`、`var(--text-muted)`、`var(--hero-grad-a)`、`var(--hero-grad-b)`、`var(--hero-fade)`
+- 允许使用 `rgba(255,255,255,...)` 和 `rgba(0,0,0,...)` 做覆盖层，但不要大面积硬编码品牌色十六进制
 - 若当前自由模式抽卡数大于 `1`，则需要生成多个完整版本，视觉方向必须明显不同；输出文件名应使用 `-v1`、`-v2`、`-v3` 这样的后缀
 
 自由模式必须遵守的底线：
@@ -296,6 +307,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 图片、SVG、表格都必须自适应宽度
 - 内容必须可读、可编辑、可导出，不能退化成纯海报
 - 禁止 Emoji
+- `free` 模式的丑陋高发原因通常有三种：完全绕开 helper、乱用硬编码颜色、只有装饰没有层次。生成时要主动规避
 
 #### 如果当前是 `rule` 模式
 

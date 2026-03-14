@@ -2,7 +2,7 @@
 
 将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
 
-当前版本：`v1.6.0`
+当前版本：`v1.6.1`
 
 ## 30 秒快速开始
 
@@ -105,6 +105,7 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 - **36 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
 - **智能内容模式** — auto/full/compact 三档，自动识别文章类型适配详略
 - **双 UI 模式** — `rule` 走稳定组件化，`free` 走手机端自由构建
+- **自由模式有底盘** — `free` 默认优先使用 `tp-free-*` 轻组件，再让 AI 自定义增强
 - **自由抽卡** — `free` 模式默认一次出 2 版，可提高到 5 版
 - **Logo 支持** — 在 `logos/` 目录放入 `brand-logo.png` 即可启用品牌横幅
 - **结构校验** — 自动清洗误传的完整 HTML 页面，避免重复包裹导致坏结构
@@ -146,6 +147,7 @@ tianphoto/
 │   └── tp-doctor.js        # 本地环境和页面诊断
 ├── references/
 │   ├── html-components.md  # HTML 组件文档
+│   ├── free-mode.md        # free 模式建议与示例
 │   └── content-types.md    # 内容类型参考
 └── logos/
     └── README.md           # Logo 放置说明
@@ -174,6 +176,14 @@ git status --short
 ```
 
 ## 更新日志
+
+### v1.6.1
+
+- 继续强化 `free` 模式：默认采用 helpers-first 与 variables-first 策略，先使用 `tp-free-*` 轻组件再做自定义增强
+- 新增 `references/free-mode.md`，补上 free 模式的正确起手方式、变量使用规则与示例骨架
+- 提升 `free-base.css` 的前端能力，强化 `tp-free-hero`、`tp-free-panel`、`tp-free-stat` 等组件的默认视觉层次
+- 增强 `/tp doctor` 页面诊断：可识别 free helper 使用情况、危险网格与硬编码颜色
+- UI 配置新增 `updated_at` 记录，方便追踪当前模式切换时间
 
 ### v1.6.0
 
