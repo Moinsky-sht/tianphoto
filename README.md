@@ -2,7 +2,7 @@
 
 将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
 
-当前版本：`v1.7.0`
+当前版本：**v1.8.1**
 
 ## 30 秒快速开始
 
@@ -99,9 +99,11 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 ## 功能
 
 - **网页优先，图片可选** — 生成自包含可编辑 HTML 网页
-- **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片
+- **固定宽度 375px** — 移动端标准宽度，导出与预览一致（所见即所得）
+- **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片，支持 6 种字体切换
 - **一键导出** — 按卡片智能切片导出 PNG（所见即所得）
 - **自动封面** — 导出时自动生成公众号 2.35:1 头条封面图
+- **自动推送** — 生成后自动推送到当前会话（支持飞书/Discord/Slack）
 - **36 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
 - **14 个风格家族** — preset 不再只是换色，而是先确定 family，再落到具体 archetype 和 preset
 - **智能内容模式** — auto/full/compact 三档，自动识别文章类型适配详略
@@ -113,6 +115,7 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 - **本地配置** — logo 标题、副标题、开关写入本地配置，重复使用更稳定
 - **Doctor 自检** — 一条命令查看当前版本、模式、logo、Chrome、预设数、family 数和页面诊断
 - **飞书友好** — 适合把飞书文档、周报、通知、复盘转成手机端更好读的网页或长图
+- **发布说明生成器** — 升级后自动生成美观的图文发布说明（`tianphoto-release-notes`）
 
 ## 预设风格速查
 
@@ -130,36 +133,41 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 
 ```
 tianphoto/
-├── SKILL.md           # Skill 定义（Claude Code 入口）
-├── README.md          # 本文件
-├── version.json       # 版本信息（用于 /tp version 和 /tp update）
-├── local-settings.json # 本地配置（自动生成，默认不提交）
+├── SKILL.md                # Skill 定义（Claude Code 入口）
+├── README.md               # 本文件
+├── version.json            # 版本信息
+├── local-settings.json     # 本地配置（自动生成）
+├── release-v1.8.0.md       # 版本发布说明
 ├── assets/
 │   ├── article-theme.css   # 文章主题样式
 │   ├── free-base.css       # 自由模式轻底盘
-│   ├── editor.js           # 内置编辑器 + 导出引擎
+│   ├── editor-stable.js    # 稳定版编辑器 v2.0
 │   ├── html2canvas.min.js  # 渲染依赖
-│   └── presets.json        # 36 套预设配置（含 family / archetype 元数据）
+│   └── presets.json        # 36 套预设配置
 ├── scripts/
-│   ├── render-image.js     # 渲染脚本（PNG 导出需 puppeteer-core）
+│   ├── render-image.js     # 渲染脚本
+│   ├── push-to-session.js  # 自动推送脚本
 │   ├── fetch-content.js    # URL 内容抓取
 │   ├── settings.js         # 本地配置读写
 │   ├── tp-config.js        # Logo / UI 模式设置
-│   └── tp-doctor.js        # 本地环境和页面诊断
+│   └── tp-doctor.js        # 环境和页面诊断
 ├── references/
 │   ├── html-components.md  # HTML 组件文档
-│   ├── free-mode.md        # free 模式建议与示例
-│   ├── style-families.md   # 风格家族与匹配指南
+│   ├── free-mode.md        # free 模式建议
+│   ├── style-families.md   # 风格家族指南
 │   └── content-types.md    # 内容类型参考
 └── logos/
-    └── README.md           # Logo 放置说明
+    └── brand-logo.png      # 品牌 Logo（可选）
 ```
 
 ## 依赖
 
 - Node.js（随 Claude Code 环境自带）
 - **PNG 导出（可选）**：`npm install -g puppeteer-core`（仅 4MB，使用系统 Chrome，无需下载浏览器）
-- 默认的 HTML 网页 + 浏览器内导出无需任何额外依赖
+- **Chrome 浏览器**（macOS）：`brew install --cask google-chrome`
+- **Chrome 浏览器**（macOS 轻量版）：`brew install --cask chromium`
+
+默认的 HTML 网页 + 浏览器内导出无需任何额外依赖。
 
 ## 更新
 
@@ -178,6 +186,17 @@ git status --short
 ```
 
 ## 更新日志
+
+### v1.8.1
+
+- **新增自动推送功能**：生成 HTML 后自动推送到当前会话（支持飞书/Discord/Slack）
+- **新增发布说明生成器**：`tianphoto-release-notes` skill，升级后自动生成图文发布说明
+- **固定宽度 375px**：移动端标准宽度，导出与预览完全一致（所见即所得）
+- **新增字体编辑功能**：编辑器支持 6 种字体选择（系统默认、优雅宋体、现代黑体、手写风格、商务正式、科技感）
+- **稳定版编辑器 v2.0**：重写 `editor-stable.js`，更稳定的初始化逻辑
+- **优化调用能力**：改进 skill description 和触发关键词，提升识别准确率
+- **增强导出质量**：统一视口宽度，2.88x 缩放达到 1080px 高清输出
+- **改进 README**：补充安装依赖说明和自动推送文档
 
 ### v1.7.0
 
