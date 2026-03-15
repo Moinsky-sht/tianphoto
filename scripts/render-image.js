@@ -605,21 +605,6 @@ ${htmlContent}
 </body>
 </html>`;
 }
-body { margin: 0; padding: 0; }
-:root {
-${cssVarsBlock}
-}
-${cssBundle}
-</style>
-</head>
-<body>
-<div class="export-surface">
-${logoHtml}
-${htmlContent}
-</div>
-</body>
-</html>`;
-}
 
 /**
  * 查找系统已安装的 Chrome / Chromium 可执行文件。
@@ -764,11 +749,6 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight) {
         console.log(`PNG: ${outPath} (${h}px)`);
       }
     }
-  } finally {
-    await browser.close();
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-  }
-}
   } finally {
     await browser.close();
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
