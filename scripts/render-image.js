@@ -839,7 +839,24 @@ async function main() {
   fs.writeFileSync(htmlOutPath, standaloneHtml, "utf-8");
   console.log(`HTML page: ${htmlOutPath}`);
 
-  // 2. Optionally export PNG
+  // 2. 自动推送到会话
+  const pushScript = path.join(SKILL_DIR, "scripts", "push-to-session.js");
+  if (fs.existsSync(pushScript)) {
+    console.log("[Tianphoto] 正在推送文件到会话...");
+    try {
+      const { execSync } = require("child_process");
+      const pushResult = execSync(
+        `node "${pushScript}" "${htmlOutPath}"`,
+        { encoding: "utf-8", timeout: 30000, cwd: SKILL_DIR }
+      );
+      console.log(pushResult);
+    } catch (pushErr) {
+      // 推送失败不影响主流程，仅记录日志
+      console.log("[Tianphoto] 自动推送可能失败，文件已保存到本地:", htmlOutPath);
+    }
+  }
+
+  // 3. Optionally export PNG
   if (wantPng) {
     const exportHtml = buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml);
     await exportPng(exportHtml, outputDir, baseName, sliceHeight);

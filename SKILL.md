@@ -784,3 +784,60 @@ node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--l
 | obsidian-notes | 曜石手记 | mono-dark | 夜读（暗色） |
 | peach-bloom | 桃雾晨刊 | glass | 生活品牌 |
 | ink-editorial | 墨色社刊 | magazine | 纪实报道 |
+
+## 新功能：自动推送到会话
+
+Tianphoto v1.8.0+ 支持**自动生成后自动推送 HTML 文件到当前会话**。
+
+### 工作原理
+
+当生成 HTML 文件后，`render-image.js` 会自动调用 `push-to-session.js`：
+
+1. **检测渠道** - 自动识别当前会话渠道（飞书/Discord/Slack等）
+2. **推送文件** - 尝试通过对应渠道的文件发送功能推送 HTML
+3. **备用方案** - 如果推送失败，文件仍保存在本地，并提供文件路径
+
+### 适用场景
+
+- ✅ 飞书群聊 - 自动推送 HTML 文件到群内
+- ✅ 服务器部署 - 无需 SSH 到服务器取文件
+- ✅ 远程协作 - 团队成员直接收到可编辑的 HTML 文件
+
+### 手动推送
+
+如果自动推送失败，可以手动调用：
+
+```bash
+node $SKILL_DIR/scripts/push-to-session.js /path/to/generated.html
+```
+
+## 新功能：版本发布说明生成
+
+每次升级后，使用配套 skill `tianphoto-release-notes` 生成美观的图文发布说明。
+
+### 使用方法
+
+```
+/tp-release          # 生成当前版本发布说明
+/tp-release v1.8.0   # 生成指定版本发布说明
+```
+
+### 发布说明包含
+
+1. **🎉 版本号** - 大标题展示
+2. **✨ 功能亮点** - 本次更新的核心改进
+3. **📦 安装方式** - 新用户的安装指南
+4. **🔄 更新方式** - 老用户的升级指南
+5. **📝 详细日志** - 完整的 changelog
+
+### 安装发布说明生成器
+
+```bash
+# 复制到 skills 目录
+cp -r $SKILL_DIR/../tianphoto-release-notes ~/.openclaw/workspace/skills/
+```
+
+---
+
+**版本**: v1.8.0  
+**GitHub**: https://github.com/Moinsky-sht/tianphoto
