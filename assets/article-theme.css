@@ -2158,16 +2158,6 @@
   box-shadow: inset 0 0 0 2px #0066ff;
 }
 
-/* --- 固定宽度容器 --- */
-@media screen and (min-width: 376px) {
-  .article-container {
-    width: 375px !important;
-    max-width: 375px !important;
-    margin: 0 auto !important;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
-  }
-}
-
 /* --- 暗色模式适配 --- */
 @media (prefers-color-scheme: dark) {
   .editor-toolbar {
