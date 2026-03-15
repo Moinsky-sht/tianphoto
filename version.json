@@ -1,11 +1,9 @@
 {
-  "version": "1.8.2",
+  "version": "1.8.3",
   "repo": "Moinsky-sht/tianphoto",
   "changelog": [
-    "新增：可选择的导出分辨率（2x/3x/1080）",
-    "新增：编辑器自定义字体功能",
-    "改进：WebChat 渠道支持，提供下载页面",
-    "修复：删除 render-image.js 中的重复代码",
-    "优化：默认导出 2x (750px) 高清图片"
+    "修复：恢复 v1.7.0 viewport 设置，修复视觉品质问题",
+    "修复：删除破坏设计的 !important 强制样式",
+    "保留：自定义字体、可选分辨率、WebChat下载功能"
   ]
 }
