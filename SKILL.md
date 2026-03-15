@@ -1,13 +1,22 @@
 ---
 name: tianphoto
-description: >
-  This skill should be used when the user asks to "generate a mobile article image",
-  "create a WeChat-style long image", "turn this article into a phone image",
-  "make a mobile infographic", "把文章做成手机长图", "生成公众号图文",
-  "做一张手机海报", "文章转长图", "生成手机图片", "做成网页图文",
-  "tianphoto", "/tp",
-  or provides article text/URL wanting visual output as a mobile-optimized page or image.
+description: |
+  文章转手机长图工具。当用户需要：
+  - 把文章做成手机长图 / 公众号图文 / 手机海报
+  - 生成网页图文 / 文章转图片 / 文章排版
+  - 制作小红书图文 / 微博长图 / 可编辑的图文页面
+  - 使用 /tp 指令或提到 tianphoto
+  关键词：图文生成、长图、公众号、排版、海报、/tp、tianphoto
+  输入：文章文字或 URL
+  输出：可编辑的 HTML 网页 + 可选 PNG 切片
 user_invocable: true
+keywords:
+  - tianphoto
+  - 图文生成
+  - 文章转长图
+  - 公众号图文
+  - 手机海报
+  - /tp
 ---
 
 # Tianphoto — 智能图文生成工作室

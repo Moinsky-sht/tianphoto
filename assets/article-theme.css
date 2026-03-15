@@ -1854,3 +1854,359 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+/* ============================================================
+   编辑器样式 — Tianphoto Editor Styles v2.0
+   ============================================================ */
+
+/* --- 工具栏 --- */
+.editor-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 8px 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.editor-toolbar-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+}
+
+.editor-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.editor-toolbar button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-toolbar button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.editor-toolbar button:active {
+  transform: scale(0.95);
+}
+
+.editor-toolbar button b,
+.editor-toolbar button i,
+.editor-toolbar button u {
+  font-size: 16px;
+}
+
+.editor-font-select {
+  padding: 8px 28px 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.editor-btn-image,
+.editor-btn-save,
+.editor-btn-export {
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+}
+
+.editor-btn-export {
+  background: #0066ff !important;
+  color: #fff !important;
+}
+
+.editor-btn-export:hover {
+  background: #0052cc !important;
+}
+
+/* --- 导出遮罩 --- */
+.export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.export-overlay-inner {
+  text-align: center;
+  color: #fff;
+}
+
+.export-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: export-spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes export-spin {
+  to { transform: rotate(360deg); }
+}
+
+.export-text {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* --- 导出对话框 --- */
+.export-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 2001;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.export-dialog-inner {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.export-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.export-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.export-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.export-gallery {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.export-slice-card {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  background: #fff;
+}
+
+.export-slice-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.export-slice-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.export-slice-info {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.export-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.export-actions button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.export-btn-download {
+  background: #0066ff;
+  color: #fff;
+}
+
+.export-btn-download:hover {
+  background: #0052cc;
+}
+
+.export-btn-close {
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+.export-btn-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* --- 提示 --- */
+.editor-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 3000;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+
+.editor-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* --- 编辑状态 --- */
+.article-container[contenteditable="true"] {
+  min-height: 60vh;
+  outline: none;
+  padding-bottom: 100px;
+}
+
+.article-container[contenteditable="true"]:focus {
+  outline: none;
+}
+
+.article-container.drag-over {
+  background: rgba(0, 102, 255, 0.05);
+  box-shadow: inset 0 0 0 2px #0066ff;
+}
+
+/* --- 固定宽度容器 --- */
+@media screen and (min-width: 376px) {
+  .article-container {
+    width: 375px !important;
+    max-width: 375px !important;
+    margin: 0 auto !important;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* --- 暗色模式适配 --- */
+@media (prefers-color-scheme: dark) {
+  .editor-toolbar {
+    background: rgba(30, 30, 30, 0.95);
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .editor-toolbar button {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+  
+  .editor-toolbar button:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  
+  .editor-font-select {
+    background: #2a2a2a;
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #fff;
+  }
+  
+  .export-dialog-inner {
+    background: #1e1e1e;
+    color: #fff;
+  }
+  
+  .export-header,
+  .export-actions {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .export-close {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+  
+  .export-btn-close {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+}

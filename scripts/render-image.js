@@ -509,8 +509,11 @@ function buildLogoHtml(logoOptions) {
 </div>`;
 }
 
+const MOBILE_WIDTH = 375; // 标准移动端宽度
+const EXPORT_WIDTH = 1080; // 导出 PNG 宽度（高清）
+
 function buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml) {
-  const editorJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'editor.js'), 'utf-8');
+  const editorJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'editor-stable.js'), 'utf-8');
   // Sanitize: html2canvas.min.js may contain literal "</script>" which breaks inline embedding
   const html2canvasJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'html2canvas.min.js'), 'utf-8')
     .replace(/<\/script/gi, '<\\/script');
@@ -519,17 +522,25 @@ function buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoH
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=${MOBILE_WIDTH}, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Tianphoto</title>
 <style>
 :root {
 ${cssVarsBlock}
+--mobile-width: ${MOBILE_WIDTH}px;
 }
 ${cssBundle}
+/* 强制固定宽度 */
+.article-container {
+  width: ${MOBILE_WIDTH}px !important;
+  max-width: ${MOBILE_WIDTH}px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
 </style>
 </head>
 <body class="article-page">
-<div class="article-container">
+<div class="article-container" data-mobile-width="${MOBILE_WIDTH}">
 ${logoHtml}
 ${htmlContent}
 </div>
@@ -544,9 +555,56 @@ function buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml) {
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=1080">
+<meta name="viewport" content="width=${MOBILE_WIDTH}">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { margin: 0; padding: 0; }
+
+:root {
+${cssVarsBlock}
+--mobile-width: ${MOBILE_WIDTH}px;
+}
+
+${cssBundle}
+
+/* 导出时强制固定移动端宽度 */
+.export-surface {
+  width: ${MOBILE_WIDTH}px !important;
+  max-width: ${MOBILE_WIDTH}px !important;
+  min-height: 100px;
+  padding: 28px 20px 60px;
+  background: var(--phone-bg);
+  font-size: 17px;
+  margin: 0 auto !important;
+}
+
+.export-surface * {
+  max-width: ${MOBILE_WIDTH - 40}px !important;
+  box-sizing: border-box !important;
+}
+
+/* 图片适配 */
+.export-surface img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* 网格限制 */
+.export-surface .wx-metric-grid,
+.export-surface .wx-compare-grid {
+  grid-template-columns: 1fr 1fr !important;
+}
+</style>
+</head>
+<body>
+<div class="export-surface" data-export-width="${MOBILE_WIDTH}">
+${logoHtml}
+${htmlContent}
+</div>
+</body>
+</html>`;
+}
 body { margin: 0; padding: 0; }
 :root {
 ${cssVarsBlock}
@@ -661,22 +719,34 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight) {
 
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1080, height: 800, deviceScaleFactor: 2 });
+    // 设置视口为移动端宽度 375px，scale 2.88x 达到 1080px 高清输出
+    const scaleFactor = Math.round(EXPORT_WIDTH / MOBILE_WIDTH * 100) / 100; // 2.88
+    await page.setViewport({ 
+      width: MOBILE_WIDTH, 
+      height: 800, 
+      deviceScaleFactor: scaleFactor 
+    });
     await page.goto(`file://${tempPath}`, { waitUntil: "networkidle0", timeout: 30000 });
     await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 500));
+    // 增加等待时间确保字体完全加载
+    await new Promise((r) => setTimeout(r, 1500));
 
     const dims = await page.evaluate(() => {
       const el = document.querySelector(".export-surface");
       return { width: el.scrollWidth, height: el.scrollHeight };
     });
 
-    console.log(`Export dimensions: ${dims.width}x${dims.height}`);
+    console.log(`Export dimensions: ${dims.width}x${dims.height} (mobile ${MOBILE_WIDTH}px @ ${scaleFactor}x)`);
 
     if (sliceHeight <= 0 || dims.height <= sliceHeight) {
       const outPath = path.join(outputDir, `${baseName}.png`);
       const surface = await page.$(".export-surface");
-      await surface.screenshot({ path: outPath, type: "png" });
+      // 使用元素截图而不是 clip，确保完整内容
+      await surface.screenshot({ 
+        path: outPath, 
+        type: "png",
+        omitBackground: false
+      });
       console.log(`PNG: ${outPath}`);
     } else {
       const count = Math.ceil(dims.height / sliceHeight);
@@ -685,10 +755,20 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight) {
         const y = i * sliceHeight;
         const h = Math.min(sliceHeight, dims.height - y);
         const outPath = path.join(outputDir, `${baseName}_${String(i + 1).padStart(2, "0")}.png`);
-        await page.screenshot({ path: outPath, type: "png", clip: { x: 0, y, width: 1080, height: h } });
+        await page.screenshot({ 
+          path: outPath, 
+          type: "png", 
+          clip: { x: 0, y, width: dims.width, height: h },
+          omitBackground: false
+        });
         console.log(`PNG: ${outPath} (${h}px)`);
       }
     }
+  } finally {
+    await browser.close();
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+  }
+}
   } finally {
     await browser.close();
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);

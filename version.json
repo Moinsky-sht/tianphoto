@@ -1,4 +1,11 @@
 {
-  "version": "1.7.0",
-  "repo": "Moinsky-sht/tianphoto"
+  "version": "1.8.0",
+  "repo": "Moinsky-sht/tianphoto",
+  "changelog": [
+    "增强调用能力：优化 skill description，提升触发稳定性",
+    "固定宽度 375px：移动端标准宽度，导出与预览一致",
+    "稳定版编辑器：重写 editor-stable.js，确保初始化成功",
+    "字体编辑功能：新增 6 种字体选择器",
+    "修复导出所见即所得：统一视口宽度，scale 2.88x 高清输出"
+  ]
 }
