@@ -837,7 +837,52 @@ node $SKILL_DIR/scripts/push-to-session.js /path/to/generated.html
 cp -r $SKILL_DIR/../tianphoto-release-notes ~/.openclaw/workspace/skills/
 ```
 
+## 新功能：可选择的导出分辨率
+
+Tianphoto v1.8.2+ 支持**选择导出图片的分辨率**。
+
+### 分辨率选项
+
+| 选项 | 实际宽度 | 适用场景 |
+|------|---------|---------|
+| `2x` | 750px | 标准高清，文件小，加载快（推荐） |
+| `3x` | 1125px | 超高清，适合精细展示 |
+| `1080` | 1080px | 兼容旧版本，公众号封面标准尺寸 |
+
+### 使用方法
+
+```bash
+# 默认 2x (750px)
+node render-image.js article.html --png
+
+# 指定 3x 超高清
+node render-image.js article.html --png --scale 3x
+
+# 指定 1080px
+node render-image.js article.html --png --scale 1080
+```
+
+## 新功能：自定义字体
+
+Tianphoto v1.8.2+ 编辑器支持**自定义字体**。
+
+### 使用方法
+
+1. 在编辑器工具栏的字体选择器中，选择"📝 自定义字体..."
+2. 输入标题字体（CSS font-family 格式）
+3. 输入正文字体（CSS font-family 格式）
+4. 字体立即应用到页面
+
+### 示例字体
+
+```
+标题: "Adobe Heiti", "PingFang SC", sans-serif
+正文: "Adobe Songti", "Songti SC", serif
+```
+
+自定义字体会自动保存到浏览器本地存储，下次打开时仍然可用。
+
 ---
 
-**版本**: v1.8.0  
+**版本**: v1.8.2  
 **GitHub**: https://github.com/Moinsky-sht/tianphoto

@@ -18,7 +18,8 @@
     { name: '现代黑体', heading: '"PingFang SC", "Hiragino Sans GB", sans-serif', body: '"PingFang SC", "Microsoft YaHei", sans-serif' },
     { name: '手写风格', heading: '"Hanzi Pen SC", "STXingkai", cursive', body: '"PingFang SC", sans-serif' },
     { name: '商务正式', heading: '"Times New Roman", "Songti SC", serif', body: '"Segoe UI", "PingFang SC", sans-serif' },
-    { name: '科技感', heading: '"SF Pro Display", "Helvetica Neue", sans-serif', body: '"SF Pro Text", "PingFang SC", sans-serif' }
+    { name: '科技感', heading: '"SF Pro Display", "Helvetica Neue", sans-serif', body: '"SF Pro Text", "PingFang SC", sans-serif' },
+    { name: '📝 自定义字体...', heading: 'custom', body: 'custom' }
   ];
 
   // 卡片级切片选择器（按语义边界切片）
@@ -217,6 +218,21 @@
     var font = FONT_OPTIONS[fontIndex];
     if (!font) return;
     
+    // 处理自定义字体
+    if (font.heading === 'custom' && font.body === 'custom') {
+      var customHeading = prompt('请输入标题字体（CSS font-family 格式）：\n例如："PingFang SC", "Microsoft YaHei", sans-serif', '"PingFang SC", sans-serif');
+      if (!customHeading) return;
+      
+      var customBody = prompt('请输入正文字体（CSS font-family 格式）：\n例如："PingFang SC", "Microsoft YaHei", sans-serif', '"PingFang SC", sans-serif');
+      if (!customBody) return;
+      
+      font = {
+        name: '自定义字体',
+        heading: customHeading,
+        body: customBody
+      };
+    }
+    
     var style = document.getElementById('tianphoto-dynamic-font');
     if (!style) {
       style = document.createElement('style');
@@ -229,6 +245,14 @@
       '.article-container, .article-container p, .article-container li { font-family: ' + font.body + ' !important; }';
     
     showToast('已应用字体：' + font.name);
+    
+    // 保存自定义字体到本地存储
+    if (font.name === '自定义字体') {
+      try {
+        localStorage.setItem('tianphoto-custom-font-heading', font.heading);
+        localStorage.setItem('tianphoto-custom-font-body', font.body);
+      } catch (e) {}
+    }
   }
 
   // ─── 图片插入 ───

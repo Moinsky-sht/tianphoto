@@ -12,6 +12,7 @@ const path = require('path');
 
 // 支持的渠道和对应的环境变量/检测方式
 const CHANNEL_DETECTORS = {
+  webchat: () => process.env.OPENCLAW_CHANNEL === 'webchat' || process.env.WEBCHAT_SESSION,
   feishu: () => process.env.OPENCLAW_CHANNEL === 'feishu' || process.env.FEISHU_CHAT_ID,
   discord: () => process.env.OPENCLAW_CHANNEL === 'discord',
   slack: () => process.env.OPENCLAW_CHANNEL === 'slack',
@@ -107,12 +108,162 @@ async function pushGeneric(filePath) {
 }
 
 /**
- * 将 HTML 内容转换为 base64 数据链接（用于嵌入）
+ * 通过 WebChat/OpenClaw Web UI 推送
+ * 提供直接的下载链接和 base64 预览
  */
-function createDataUrl(filePath) {
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const base64 = Buffer.from(content).toString('base64');
-  return `data:text/html;base64,${base64}`;
+async function pushViaWebChat(filePath) {
+  console.log(`[Tianphoto] WebChat 渠道，生成下载链接: ${path.basename(filePath)}`);
+  
+  const stats = fs.statSync(filePath);
+  const fileSize = (stats.size / 1024).toFixed(2);
+  
+  // 生成 base64 data URL（用于浏览器直接打开）
+  const dataUrl = createDataUrl(filePath);
+  
+  console.log('');
+  console.log('='.repeat(60));
+  console.log('📄 Tianphoto 图文页面已生成');
+  console.log('='.repeat(60));
+  console.log(`文件: ${path.basename(filePath)}`);
+  console.log(`大小: ${fileSize} KB`);
+  console.log(`路径: ${filePath}`);
+  console.log('');
+  console.log('💡 提示: 在浏览器中打开以下链接查看/编辑：');
+  console.log(dataUrl.substring(0, 100) + '...');
+  console.log('');
+  console.log('📥 下载方式:');
+  console.log('1. 点击浏览器链接直接打开');
+  console.log('2. 在打开的页面中点击"保存"按钮下载');
+  console.log('3. 或使用文件路径手动复制');
+  console.log('='.repeat(60));
+  
+  // 尝试生成一个可直接点击的 HTML 下载页面
+  const downloadHtml = generateDownloadPage(filePath, dataUrl);
+  const downloadPagePath = filePath.replace('.html', '-download.html');
+  fs.writeFileSync(downloadPagePath, downloadHtml, 'utf-8');
+  console.log(`[Tianphoto] 下载页面已生成: ${downloadPagePath}`);
+  
+  return true;
+}
+
+/**
+ * 生成带有点击下载按钮的 HTML 页面
+ */
+function generateDownloadPage(originalFilePath, dataUrl) {
+  const fileName = path.basename(originalFilePath);
+  
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>下载 Tianphoto 图文</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.container {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 40px;
+}
+h1 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 12px;
+}
+p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  text-decoration: none;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin: 8px;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+.btn-secondary {
+  background: #f5f5f5;
+  color: #333;
+}
+.btn-secondary:hover {
+  background: #e8e8e8;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.tips {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #eee;
+  text-align: left;
+}
+.tips h3 {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 12px;
+}
+.tips ul {
+  font-size: 13px;
+  color: #666;
+  padding-left: 20px;
+}
+.tips li {
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="icon">📄</div>
+  <h1>图文页面已生成</h1>
+  <p>${fileName}</p>
+  <a href="${dataUrl}" class="btn" download="${fileName}">⬇️ 直接下载 HTML</a>
+  <a href="${dataUrl}" class="btn btn-secondary" target="_blank">👁️ 在浏览器中打开</a>
+  <div class="tips">
+    <h3>💡 使用提示：</h3>
+    <ul>
+      <li>在浏览器中打开后，可以直接点击文字进行编辑</li>
+      <li>支持拖拽插入图片</li>
+      <li>编辑完成后，点击页面底部的"保存"按钮下载</li>
+      <li>也可以点击"导出"按钮生成 PNG 切片</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>`;
 }
 
 /**
@@ -137,6 +288,9 @@ async function main() {
   let success = false;
   
   switch (channel) {
+    case 'webchat':
+      success = await pushViaWebChat(filePath);
+      break;
     case 'feishu':
       success = await pushViaFeishu(filePath);
       break;

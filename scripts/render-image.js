@@ -509,8 +509,13 @@ function buildLogoHtml(logoOptions) {
 </div>`;
 }
 
-const MOBILE_WIDTH = 375; // 标准移动端宽度
-const EXPORT_WIDTH = 1080; // 导出 PNG 宽度（高清）
+const MOBILE_WIDTH = 375; // 标准移动端逻辑宽度
+const EXPORT_SCALE_OPTIONS = {
+  '2x': 2,      // 750px - 标准高清
+  '3x': 3,      // 1125px - 超高清
+  '1080': 2.88  // 1080px - 兼容旧版本
+};
+// 默认使用 2x (750px)，如需 1080px 可通过 --scale 参数指定
 
 function buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml) {
   const editorJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'editor-stable.js'), 'utf-8');
@@ -671,7 +676,7 @@ function loadPuppeteer() {
   return null;
 }
 
-async function exportPng(exportHtml, outputDir, baseName, sliceHeight) {
+async function exportPng(exportHtml, outputDir, baseName, sliceHeight, scaleOption = '2x') {
   const puppeteer = loadPuppeteer();
   if (!puppeteer) {
     console.error([
@@ -704,13 +709,17 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight) {
 
   try {
     const page = await browser.newPage();
-    // 设置视口为移动端宽度 375px，scale 2.88x 达到 1080px 高清输出
-    const scaleFactor = Math.round(EXPORT_WIDTH / MOBILE_WIDTH * 100) / 100; // 2.88
+    
+    // 支持多种缩放选项：2x (750px)、3x (1125px)、1080 (1080px)
+    const scaleFactor = EXPORT_SCALE_OPTIONS[scaleOption] || EXPORT_SCALE_OPTIONS['2x'];
+    const actualWidth = Math.round(MOBILE_WIDTH * scaleFactor);
+    
     await page.setViewport({ 
       width: MOBILE_WIDTH, 
       height: 800, 
       deviceScaleFactor: scaleFactor 
     });
+    
     await page.goto(`file://${tempPath}`, { waitUntil: "networkidle0", timeout: 30000 });
     await page.evaluate(() => document.fonts.ready);
     // 增加等待时间确保字体完全加载
@@ -721,7 +730,8 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight) {
       return { width: el.scrollWidth, height: el.scrollHeight };
     });
 
-    console.log(`Export dimensions: ${dims.width}x${dims.height} (mobile ${MOBILE_WIDTH}px @ ${scaleFactor}x)`);
+    console.log(`Export dimensions: ${dims.width}x${dims.height} (mobile ${MOBILE_WIDTH}px @ ${scaleFactor}x = ${actualWidth}px)`);
+    console.log(`💡 提示: 使用 --scale 2x|3x|1080 可切换导出分辨率 (默认 2x)`);
 
     if (sliceHeight <= 0 || dims.height <= sliceHeight) {
       const outPath = path.join(outputDir, `${baseName}.png`);
@@ -839,7 +849,8 @@ async function main() {
   // 3. Optionally export PNG
   if (wantPng) {
     const exportHtml = buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml);
-    await exportPng(exportHtml, outputDir, baseName, sliceHeight);
+    const scaleOption = args.scale || '2x'; // 默认 2x (750px)
+    await exportPng(exportHtml, outputDir, baseName, sliceHeight, scaleOption);
   }
 }
 
