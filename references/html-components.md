@@ -70,7 +70,10 @@
     </div>
     <div class="wx-section-heading">
       <span class="wx-section-index">PART 01</span>
-      <h2>章节标题</h2>
+      <div>
+        <div class="wx-card-caption">栏目标签</div>
+        <h2>章节标题</h2>
+      </div>
     </div>
   </div>
   <div class="wx-section-body">
@@ -80,6 +83,29 @@
   </div>
 </div>
 ```
+
+### 章节标题系统
+
+同一篇页面必须选择一种主 `heading system`，不要在不同带 `wx-section-top` 的章节之间混用。
+
+| System | 结构重点 | 适合家族 |
+| --- | --- | --- |
+| `icon-led` | 强调 `wx-section-icon`，隐藏或弱化 `wx-section-index` | `field-atlas`, `aurora-drift`, `play-lab` |
+| `index-led` | 强调 `wx-section-index`，图标退场 | `swiss-journal`, `ledger-spec`, `brief-bulletin`, `poster-brutal` |
+| `dual` | 同时保留图标与编号，像 dashboard / signal panel | `ops-console`, `neon-signal` |
+| `plaque` | 强调 `wx-card-caption + h2` 的牌匾感，弱化 icon/index | `archive-paper`, `salon-luxe`, `night-gallery`, `studio-ribbon`, `deck-story` |
+
+默认做法：
+
+- `rule` 模式建议同时输出 `wx-section-icon + wx-section-index + wx-card-caption + h2`
+- 再由 `<article data-heading-system="...">` 决定显隐和层级
+- 如果你决定手动精简，整页必须仍然保持同一种 heading system
+
+禁止做法：
+
+- 第一段用 icon，第二段突然只剩编号
+- 使用无语义的占位图标，例如通用加号、无含义十字、调试图标
+- 同一页把 section icon 做成完全一样的占位形状，只靠换颜色区分
 
 ### 4. wx-metric-grid（数据指标）
 
@@ -351,4 +377,4 @@
 5. **图标选择**：根据章节内容从内置 SVG 库中选最合适的，或自行设计 SVG（使用 `currentColor`）
 6. **图片占位**：用 `wx-image-drop-zone` 标记用户可后续插图的位置
 7. **禁止 Emoji**：不要在任何地方使用 Emoji 字符（🚀✨💡📊❌✅ 等），所有图标必须用 SVG
-8. **每个 section-card 必须有 SVG 图标**：使用 `wx-section-icon` + 内置或自绘 SVG
+8. **每个带 `wx-section-top` 的 section-card 必须遵守统一的章节标题系统**：优先同时提供 `wx-section-icon` + `wx-section-index` + `wx-card-caption` + `h2`，再由 `data-heading-system` 决定主次；像 summary / quote 这类信息卡不必强行补章节图标，但禁止使用无语义的占位 SVG

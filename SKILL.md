@@ -422,7 +422,10 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
     </div>
     <div class="wx-section-heading">
       <span class="wx-section-index">PART 01</span>
-      <h2 style="font-size:22px;color:var(--accent-strong);font-weight:800;">章节标题</h2>
+      <div>
+        <div class="wx-card-caption">栏目标签</div>
+        <h2 style="font-size:22px;color:var(--accent-strong);font-weight:800;">章节标题</h2>
+      </div>
     </div>
   </div>
   <div class="wx-section-body">
@@ -433,6 +436,35 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
   </div>
 </div>
 ```
+
+#### 章节标题系统（非常重要）
+
+同一页必须只选择一种主 `heading system`，不要在不同 `wx-section-card` 之间混用。
+
+- `icon-led`
+  适合 `field-atlas / aurora-drift / play-lab`
+  强调 `wx-section-icon`，编号退场或隐藏
+- `index-led`
+  适合 `swiss-journal / ledger-spec / brief-bulletin / poster-brutal`
+  强调 `wx-section-index`，图标退场
+- `dual`
+  适合 `ops-console / neon-signal`
+  图标与编号并存，像面板或信号系统
+- `plaque`
+  适合 `archive-paper / salon-luxe / night-gallery / studio-ribbon / deck-story`
+  强调 `wx-card-caption + h2` 的牌匾感，图标和编号弱化
+
+推荐做法：
+
+- `rule` 模式优先同时输出 `wx-section-icon + wx-section-index + wx-card-caption + h2`
+- 再让根节点的 `data-heading-system` 决定它们的主次和显隐
+- 如果确实要删减，只能整页一起删，不能一个 section 有 icon、另一个 section 只剩编号
+
+禁止做法：
+
+- 使用没有语义的占位 SVG，例如通用加号、调试十字
+- 同一页里第一节是图标系统，第二节突然跳成编号系统
+- 所有 section 都复用同一个无含义 icon，只换颜色假装区分
 
 #### 指标网格模板
 
@@ -509,7 +541,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - [ ] 根节点带有正确的 `data-preset`、`data-style-family`、`data-style-archetype`
 - [ ] 所有 class 名都在上方白名单中
 - [ ] 有且仅有一个 `wx-hero-card`，且包含 `wx-hero-mesh` SVG 背景
-- [ ] 每个 `wx-section-card` 都有 `wx-section-top` > `wx-section-icon`（含 SVG）+ `wx-section-heading`
+- [ ] 每个带 `wx-section-top` 的 `wx-section-card` 都使用统一的章节标题系统；默认结构为 `wx-section-top` > `wx-section-icon` + `wx-section-heading`（含 `wx-section-index`、`wx-card-caption`、`h2`），但 summary / quote 这类信息卡不必强行补章节头
 - [ ] 每个 `wx-section-card` 的正文都包裹在 `wx-section-body` 中
 - [ ] 没有任何 Emoji 字符
 - [ ] 如使用 `wx-divider-ornament`，整篇最多 1-2 个，且必须与主题匹配；早报/资讯/新闻类页面默认应为 0 个
@@ -578,7 +610,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 3. **SVG 装饰是视觉灵魂** — 每篇文章至少包含：
    - 1 个 `wx-hero-mesh` SVG 背景（渐变 + 几何图形，不少于 3 个图形元素）
-   - 每个 `wx-section-card` 必须有 `wx-section-icon`（从内置 SVG 库中选择，或自行设计）
+   - 每个带 `wx-section-top` 的 `wx-section-card` 必须服从统一的章节标题系统；SVG 可以从内置库选，也可以根据主题自行设计，但必须有语义
    - 如确实需要章节转场，可使用 0-2 个 `wx-divider-ornament`，并按主题选择 `editorial-notch` / `soft-stars` / `chevron-band` / `fold-divider`
    - 适当使用 `wx-inline-graphic` 或 `wx-badge-art` 增加视觉丰富度
 

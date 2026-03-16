@@ -166,6 +166,33 @@ function getArticleArchetype(htmlContent) {
   return match ? match[2] : null;
 }
 
+function getArticleHeadingSystem(htmlContent) {
+  const match = htmlContent.match(/data-heading-system=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+const FAMILY_HEADING_SYSTEMS = {
+  "swiss-journal": "index-led",
+  "field-atlas": "icon-led",
+  "ledger-spec": "index-led",
+  "archive-paper": "plaque",
+  "aurora-drift": "icon-led",
+  "skyline-pane": "index-led",
+  "ops-console": "dual",
+  "brief-bulletin": "index-led",
+  "deck-story": "plaque",
+  "salon-luxe": "plaque",
+  "night-gallery": "plaque",
+  "neon-signal": "dual",
+  "poster-brutal": "index-led",
+  "play-lab": "icon-led",
+  "studio-ribbon": "plaque",
+};
+
+function getRecommendedHeadingSystem(preset) {
+  return FAMILY_HEADING_SYSTEMS[preset?.family] || "icon-led";
+}
+
 function getArticleUiMode(htmlContent) {
   return /data-ui-mode=(['"])free\1/i.test(htmlContent) ? "free" : "rule";
 }
@@ -209,6 +236,11 @@ function applyPresetMetadata(htmlContent, preset) {
     if (preset.archetype) {
       nextAttrs = upsertAttribute(nextAttrs, "data-style-archetype", preset.archetype);
     }
+    nextAttrs = upsertAttribute(
+      nextAttrs,
+      "data-heading-system",
+      getArticleHeadingSystem(match) || getRecommendedHeadingSystem(preset)
+    );
 
     if (getArticleUiMode(match) !== "free") {
       nextAttrs = upsertClassTokens(
@@ -418,6 +450,71 @@ function validateDecorativeGraphics(htmlContent) {
   }
 }
 
+function validateSectionHeadingSystems(htmlContent) {
+  const sectionTopCount = (htmlContent.match(/class=(['"])[^'"]*wx-section-top[^'"]*\1/gi) || []).length;
+  if (sectionTopCount === 0) return;
+  const headingSystem = getArticleHeadingSystem(htmlContent);
+  const iconBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-section-icon[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
+  const iconCount = iconBlocks.length;
+  const indexBlocks = [...htmlContent.matchAll(/<[^>]*class=(['"])[^'"]*wx-section-index[^'"]*\1[^>]*>([\s\S]*?)<\/[^>]+>/gi)];
+  const indexCount = indexBlocks.length;
+  const indexes = [];
+  const placeholderHits = [];
+
+  iconBlocks.forEach((block, idx) => {
+    if (/M5\s*12h14[^"]*M12\s*5v14|M6\s*12h12[^"]*M12\s*6v12/i.test(block.replace(/\s+/g, " "))) {
+      placeholderHits.push(idx + 1);
+    }
+  });
+
+  indexBlocks.forEach((match, idx) => {
+    const text = match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const numMatch = text.match(/(\d{1,3})/);
+    if (numMatch) indexes.push({ section: idx + 1, value: parseInt(numMatch[1], 10) });
+  });
+
+  if (headingSystem === "dual" && (iconCount < sectionTopCount || indexCount < sectionTopCount)) {
+    throw new Error(
+      "Heading guard: data-heading-system=\"dual\" requires each headed section to provide both wx-section-icon and wx-section-index."
+    );
+  }
+
+  if (headingSystem === "icon-led" && iconCount < sectionTopCount) {
+    throw new Error(
+      "Heading guard: data-heading-system=\"icon-led\" requires each headed section to provide wx-section-icon."
+    );
+  }
+
+  if (headingSystem === "index-led" && indexCount < sectionTopCount) {
+    throw new Error(
+      "Heading guard: data-heading-system=\"index-led\" requires each headed section to provide wx-section-index."
+    );
+  }
+
+  if (placeholderHits.length > 0) {
+    throw new Error(
+      `Heading guard: placeholder plus SVG detected in wx-section-icon (section ${placeholderHits.join(", ")}). Use a semantic SVG from the library or a custom theme-specific icon.`
+    );
+  }
+
+  if (indexes.length > 0) {
+    const expectedStart = 1;
+    if (indexes[0].value !== expectedStart) {
+      throw new Error(
+        `Heading guard: section numbering should start at 01. Found ${indexes[0].value} in the first indexed section.`
+      );
+    }
+
+    for (let i = 1; i < indexes.length; i++) {
+      if (indexes[i].value !== indexes[i - 1].value + 1) {
+        throw new Error(
+          `Heading guard: section numbering is discontinuous between ${indexes[i - 1].value} and ${indexes[i].value}. Keep wx-section-index sequential.`
+        );
+      }
+    }
+  }
+}
+
 function validateDividerOrnaments(htmlContent) {
   const dividerBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
   const skin = getArticleSkin(htmlContent);
@@ -468,6 +565,7 @@ function validateFreeModeDesign(htmlContent) {
 function validateArticleDesign(htmlContent) {
   validateGridLayouts(htmlContent);
   validateDecorativeGraphics(htmlContent);
+  validateSectionHeadingSystems(htmlContent);
   validateDividerOrnaments(htmlContent);
   validateFreeModeDesign(htmlContent);
 }

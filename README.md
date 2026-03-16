@@ -1,366 +1,261 @@
-# Tianphoto — 智能图文生成工作室
+# Tianphoto
 
-将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
+把文章、公告、周报、品牌内容和知识稿，直接变成一份可编辑、可导出的移动端 HTML 页面。
 
-当前版本：**v1.9.6**
+当前版本：**v2.0.0**
 
-## 30 秒快速开始
+## 它是什么
 
-1. 把仓库克隆到你的 skills 目录。
-2. 如果你在 **Claude Code / Codex** 使用，通常安装到 `~/.claude/skills/` 或宿主实际读取的 skills 目录即可。
-3. 如果你在 **OpenClaw** 使用，把仓库放到 OpenClaw 实际扫描的 skills 目录；如果它复用 `~/.claude/skills/`，可直接共用这份安装，否则给对应目录做一份拷贝或软链接。
-4. 给 Tianphoto 一段文章文字、一个公开 URL，或直接粘贴飞书文档里的正文。
-5. 如需品牌横幅，把 logo 放到 `logos/brand-logo.png`。
-6. 如需固定品牌文案，运行：
+Tianphoto 的核心不是“先做图”，而是先做一份真正能工作的手机页面：
+
+- 默认输出 **自包含 HTML**
+- 在浏览器里直接改字、换图、调对齐
+- 再按需要导出 PNG
+- 所见即所得优先，网页预览优先
+
+它适合这些场景：
+
+- 公众号图文
+- 手机长图 / 信息长页
+- 飞书周报、复盘、通知可视化
+- 发布说明、案例页、品牌内容页
+- 知识类文章、评论、教程、报告的移动端排版
+
+## 2.0.0 重点
+
+- **章节标题系统重做**：标题重新拿回主要宽度，图标与编号退为强调件，不再出现“图标和标题各占一半”的拥挤布局。
+- **风格系统升级**：`37` 套 preset、`15` 个家族不再只是换色，标题框架、卡片秩序、SVG 笔触、caption 语法和页面节奏都被重新拉开。
+- **结构校验变严**：会拦截无语义 `+` 占位图标、章节编号断档，以及把 summary / quote 误判成章节头的情况。
+- **HTML 迭代流固定**：默认继续把每次结果输出到桌面的 `tianphoto-iterations`，方便连续回看每一轮页面。
+- **文档重写**：README、Skill、组件说明和发布说明都换成了 2.0 口径。
+
+## 快速开始
+
+### 安装
+
+把仓库放到你的技能目录即可。常见路径：
 
 ```bash
-node scripts/tp-config.js logo title "品牌名"
-node scripts/tp-config.js logo subtitle "副标题"
+git clone git@github.com:Moinsky-sht/tianphoto.git ~/.claude/skills/tianphoto
 ```
 
-7. 生成后直接打开桌面 `~/Desktop/tianphoto-iterations/` 里的 `*-page.html`，可继续编辑或导出 PNG。
-8. 如果你想切换 UI 策略：
+如果你的宿主实际读取的是别的 skills 目录，就把仓库放到那个目录，或创建软链接。
 
-```bash
-node scripts/tp-config.js ui rule
-node scripts/tp-config.js ui free 2
-node scripts/tp-doctor.js
+### 最快的使用方式
+
+1. 给 Tianphoto 一段正文，或一个公开可访问的 URL。
+2. 直接说：
+
+```text
+把这篇文章做成手机长图
 ```
 
-### OpenClaw 用法
+或者：
 
-在 OpenClaw 中可直接用自然语言或 `/tp` 指令触发，例如：
+```text
+/tp style dawn-journal
+/tp select full
+```
 
-- `把这篇文章做成手机长图`
-- `生成公众号图文，风格用 dawn-journal`
+3. 生成完成后，打开桌面目录里的 HTML：
+
+```text
+~/Desktop/tianphoto-iterations/
+```
+
+4. 在浏览器里继续编辑，再决定是否导出 PNG。
+
+## 工作流
+
+### 1. 内容输入
+
+支持：
+
+- 纯文本
+- 公开 URL
+- 飞书内容粘贴
+- 已有 HTML 片段
+
+### 2. 选择模式
+
+- `auto`：自动判断该保留全文还是压缩重点
+- `full`：尽量完整保留内容
+- `compact`：更适合海报化、摘要化表达
+
+### 3. 选择 UI 策略
+
+- `rule`：稳定、强结构、适合正式交付
+- `free`：允许更自由的手机端构图
+
+### 4. 生成 HTML
+
+默认产物是桌面迭代目录中的 `*-page.html`。
+
+### 5. 浏览器内编辑
+
+当前工具栏聚焦高频动作：
+
+- 左对齐 / 居中 / 右对齐
+- 插入图片
+- 保存
+- 导出
+
+### 6. 导出 PNG
+
+HTML 永远是主产物。PNG 只是补充出口。
+
+## 常用指令
+
 - `/tp style list`
-- `/tp logo title 品牌名`
+  查看全部 `37` 套 preset。
+- `/tp style auto`
+  自动匹配风格。
+- `/tp style <preset-id>`
+  手动指定 preset，例如 `aurora-glass`、`cobalt-ops`、`opal-ribbon`。
+- `/tp select auto`
+  自动判断详略。
+- `/tp select full`
+  完整保留内容。
+- `/tp select compact`
+  紧凑压缩。
+- `/tp ui rule`
+  使用稳定组件化结构。
+- `/tp ui free`
+  切到自由构图模式。
+- `/tp ui free <count>`
+  自由模式一次生成多版，最多 `5` 版。
+- `/tp doctor`
+  检查环境、版本、模式、logo 和页面结构。
+- `/tp version`
+  查看本地版本，并检查远程是否有新版本。
+- `/tp update`
+  从 GitHub 拉取最新版本。
 
-只要 OpenClaw 能读到这个 skill 目录，使用方式和 Claude Code / Codex 基本一致。
+## 风格系统
 
-### 飞书支持
+Tianphoto 现在是一个两层风格系统：
 
-Tianphoto 支持飞书内容场景，尤其适合：
+- **Preset**：具体成品风格，共 `37` 套。
+- **Family**：更深层的版式和视觉人格，共 `15` 个家族。
 
-- 把飞书文档内容整理成手机长图
-- 把飞书周报、通知、复盘做成适合移动端阅读的网页或切片
-- 给飞书文档、飞书群消息、飞书汇报材料配图
+### 15 个风格家族
 
-说明：
+- `swiss-journal`
+  社论、专栏、知识稿，强调理性秩序和标题留白。
+- `field-atlas`
+  田野、自然、研究感，图标更像导览标记。
+- `ledger-spec`
+  文档、参数、说明书，偏 ledger / sheet 语法。
+- `archive-paper`
+  档案、展签、纸本陈列感。
+- `aurora-drift`
+  玻璃、轻科技、柔光氛围。
+- `skyline-pane`
+  空气感、玻璃 pane、轻商务页面。
+- `ops-console`
+  控制台、dashboard、产品发布 panel。
+- `brief-bulletin`
+  简报、通知、资讯卡片。
+- `deck-story`
+  deck / proposal / warm brief。
+- `salon-luxe`
+  沙龙、品牌、陈列式内容。
+- `night-gallery`
+  暗色展陈、夜间画廊、艺术发布。
+- `neon-signal`
+  霓光、signal、未来感发布。
+- `poster-brutal`
+  强块面、强对比、偏海报化。
+- `play-lab`
+  俏皮、实验、拼贴和卡通式节奏。
+- `studio-ribbon`
+  品牌案例、丝带式 plaque、轻发布页。
 
-- **公开可访问的链接** 可以直接尝试 URL
-- **需要登录态或权限的飞书文档**，更稳妥的方式是直接复制正文粘贴给 Tianphoto
-- 目前是**支持飞书内容输入与飞书使用场景**，不是直接调用飞书 API 自动发布
+### 标题系统
 
-## 安装
+2.0 之后，章节头不再允许“为了摆图标而牺牲标题宽度”。当前统一使用四类 heading system：
 
-```bash
-# 克隆到 Claude Code skills 目录
-git clone https://github.com/Moinsky-sht/tianphoto.git ~/.claude/skills/tianphoto
+- `icon-led`
+  图标主导，适合 atlas / glass / playful。
+- `index-led`
+  编号主导，但编号会放到标题上方或作为轻标签，不再横向挤压正文。
+- `dual`
+  图标和编号都保留，但编号会退成 panel signal / chip，而不是再吃掉一整列宽度。
+- `plaque`
+  更像展签、铭牌、栏题，强调 caption + h2 的牌匾感。
+
+## 生成结果放哪
+
+默认输出目录：
+
+```text
+~/Desktop/tianphoto-iterations
 ```
 
-> 如果已有该目录，先备份或删除：`rm -rf ~/.claude/skills/tianphoto`
+特点：
 
-如果你的宿主读取的不是 `~/.claude/skills/`，请安装到对应目录，或创建软链接。例如：
-
-```bash
-ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
-```
-
-某些宿主也可能读取 `~/.trae/skills/` 等路径，原则上都以“宿主真实扫描的 skills 目录”为准。
-
-## 使用
-
-在 Claude Code 中输入以下指令即可触发：
-
-- `/tp` — 启动 Tianphoto
-- `/tp style list` — 查看 37 套预设风格（现归入 15 个风格家族）
-- `/tp style <preset-id>` — 指定风格（如 `aurora-glass`）
-- `/tp select auto` — 自动判断内容详略（默认）
-- `/tp select full` — 完整保留原文内容
-- `/tp select compact` — 紧凑压缩模式
-- `/tp ui rule` — 强结构、强组件、稳定交付
-- `/tp ui free` — 自由抽卡模式，默认输出 2 个方向
-- `/tp ui free <count>` — 自由抽卡模式，最多 5 个版本
-- `/tp doctor` — 检查当前版本、UI 模式、logo、Chrome、preset/family 数与基础环境
-- `/tp logo on` — 启用品牌 Logo
-- `/tp logo title <text>` — 设置品牌横幅标题
-- `/tp logo subtitle <text>` — 设置品牌横幅副标题
-- `/tp version` — 检查版本和更新
-- `/tp update` — 升级到最新版本
-- `/tp help` — 查看帮助
-
-或者直接用自然语言：
-
-- "把这篇文章做成手机长图"
-- "生成公众号图文"
-- "做一张手机海报"
-
-## 功能
-
-- **网页优先，图片可选** — 生成自包含可编辑 HTML 网页
-- **固定宽度 375px** — 移动端标准宽度，导出与预览一致（所见即所得）
-- **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片，聚焦排版、对齐和插图等高频操作
-- **一键导出** — 按卡片智能切片导出 PNG（所见即所得）
-- **导出预览升级** — 主舞台预览 + 缩略条 + “完整适配 / 原始宽度”切换，默认打开完整图的原始宽度视图
-- **自动封面** — 导出时自动生成公众号 2.35:1 头条封面图
-- **自动推送** — 生成后自动推送到当前会话（支持飞书/Discord/Slack）
-- **37 套预设** — 覆盖科技、商业、文艺、暗色与品牌发布等多种风格
-- **15 个风格家族** — preset 不再只是换色，而是先确定 family，再落到具体 archetype 和 preset
-- **全新风格家族** — `studio-ribbon / opal-ribbon` 带来更轻盈的品牌发布与案例展示审美
-- **智能内容模式** — auto/full/compact 三档，自动识别文章类型适配详略
-- **双 UI 模式** — `rule` 走稳定组件化，`free` 走手机端自由构建
-- **自由模式有底盘** — `free` 默认优先使用 `tp-free-*` 轻组件，再让 AI 自定义增强
-- **自由抽卡** — `free` 模式默认一次出 2 版，可提高到 5 版
-- **Logo 支持** — 在 `logos/` 目录放入 `brand-logo.png` 即可启用品牌横幅
-- **桌面迭代目录** — 默认将每次生成的 HTML 放到 `~/Desktop/tianphoto-iterations/`，并自动带时间戳
-- **结构校验** — 自动清洗误传的完整 HTML 页面，避免重复包裹导致坏结构
-- **本地配置** — logo 标题、副标题、开关写入本地配置，重复使用更稳定
-- **Doctor 自检** — 一条命令查看当前版本、模式、logo、Chrome、预设数、family 数和页面诊断
-- **飞书友好** — 适合把飞书文档、周报、通知、复盘转成手机端更好读的网页或长图
-- **发布说明生成器** — 升级后自动生成美观的图文发布说明（`tianphoto-release-notes`）
-
-## 预设风格速查
-
-| ID | 名称 | 适用 |
-|----|------|------|
-| aurora-glass | 极光玻片 | 科技灵感 |
-| nebula-frost | 星云雾面 | AI 产品 |
-| comet-neon | 彗星霓光 | 发布（暗色） |
-| dawn-journal | 曦白札记 | 知识、观点 |
-| jade-zen | 青玉留白 | 禅意阅读 |
-| pearl-board | 珍珠简报 | 品牌商业 |
-| opal-ribbon | 欧泊缎带 | 品牌发布、案例展示 |
-| ... | 共 37 套 | `/tp style list` 查看全部 |
+- 每次生成都带时间戳
+- 默认不覆盖旧版本
+- 方便连续比对迭代
 
 ## 目录结构
 
-```
+```text
 tianphoto/
-├── SKILL.md                # Skill 定义（Claude Code 入口）
-├── README.md               # 本文件
-├── version.json            # 版本信息
-├── local-settings.json     # 本地配置（自动生成）
-├── release-v1.8.0.md       # 版本发布说明
+├── SKILL.md
+├── README.md
+├── version.json
 ├── assets/
-│   ├── article-theme.css   # 文章主题样式
-│   ├── free-base.css       # 自由模式轻底盘
-│   ├── editor-stable.js    # 稳定版编辑器 v5.6（WYSIWYG + 预览升级 + 精简工具栏）
-│   ├── html2canvas.min.js  # 渲染依赖
-│   └── presets.json        # 37 套预设配置
-├── release-v1.9.5.md       # v1.9.5 发布说明
-├── release-v1.9.6.md       # v1.9.6 发布说明
+│   ├── article-theme.css
+│   ├── free-base.css
+│   ├── editor-stable.js
+│   ├── html2canvas.min.js
+│   └── presets.json
 ├── scripts/
-│   ├── render-image.js     # 渲染脚本
-│   ├── push-to-session.js  # 自动推送脚本
-│   ├── fetch-content.js    # URL 内容抓取
-│   ├── settings.js         # 本地配置读写
-│   ├── tp-config.js        # Logo / UI 模式设置
-│   └── tp-doctor.js        # 环境和页面诊断
+│   ├── render-image.js
+│   ├── push-to-session.js
+│   ├── fetch-content.js
+│   ├── tp-config.js
+│   └── tp-doctor.js
 ├── references/
-│   ├── html-components.md  # HTML 组件文档
-│   ├── free-mode.md        # free 模式建议
-│   ├── style-families.md   # 风格家族指南
-│   └── content-types.md    # 内容类型参考
-└── logos/
-    └── brand-logo.png      # 品牌 Logo（可选）
+│   ├── html-components.md
+│   ├── style-families.md
+│   ├── free-mode.md
+│   └── content-types.md
+├── logos/
+└── release-v2.0.0.md
 ```
 
 ## 依赖
 
-- Node.js（随 Claude Code 环境自带）
-- **PNG 导出（可选）**：`npm install -g puppeteer-core`（仅 4MB，使用系统 Chrome，无需下载浏览器）
-- **Chrome 浏览器**（macOS）：`brew install --cask google-chrome`
-- **Chrome 浏览器**（macOS 轻量版）：`brew install --cask chromium`
+- Node.js
+- Chrome 或 Chromium
+- 如需命令行 PNG 导出：`puppeteer-core`
 
-默认的 HTML 网页 + 浏览器内导出无需任何额外依赖。
+安装可选依赖：
+
+```bash
+npm install -g puppeteer-core
+```
 
 ## 更新
 
 ```bash
-# 方式 1：使用内置指令
 /tp update
-
-# 方式 2：手动更新
-cd ~/.claude/skills/tianphoto && git pull
 ```
 
-如果你做过本地定制，更新前建议先看一下：
+或：
 
 ```bash
-git status --short
+git -C ~/.claude/skills/tianphoto pull
 ```
 
-## 更新日志
+## 兼容与建议
 
-### v1.9.6
-
-- **编辑器简化**：移除字体设置入口，工具栏回到更实用的排版、对齐、插图、保存、导出主路径
-- **新增对齐工具**：补上左对齐 / 居中 / 右对齐按钮，直接对块级内容生效
-- **审美升级**：编辑器改成浮动玻璃坞，导出弹窗改成更完整的宽幅预览舞台
-- **全新风格**：新增 `opal-ribbon`，并引入第 15 个风格家族 `studio-ribbon`
-- **迭代目录**：默认输出到桌面 `tianphoto-iterations`，每次 HTML 自动带时间戳，便于连续比对版本
-
-### v1.9.5
-
-- **导出预览重做**：改成主预览舞台 + 缩略条，不再把长图硬塞进小卡片列表里看不全
-- **新增预览缩放逻辑**：支持“完整适配”与“原始宽度”切换，既能看全图，也能看细节
-- **修复导出高度漂移**：根容器不再进入 `contenteditable`，避免浏览器自动加出的编辑尾白影响所见即所得
-- **字体工作流升级**：新增“跟随系统 UI”预设，优先使用用户当前系统字体栈
-- **智能字体范围**：字体应用支持“智能 / 卡片 / 整篇”，不再只能整页一起改
-- **编辑器 v5.3**：在 v5.2 基础上继续打磨预览与字体体验
-
-### v1.9.4
-
-- **全面修复导出 WYSIWYG**：强制将所有计算后的视觉样式（背景、边框、阴影、圆角、颜色）内联到每个元素，确保 html2canvas 无需依赖 CSS 变量解析
-- **修复伪元素丢失**：将 ::before/::after 伪元素物化为真实 DOM 节点，修复装饰性边框、渐变覆盖层、几何图案在导出时全部消失的问题
-- **冻结动画**：导出期间冻结 transition/animation，避免捕获中间态
-- **修复预览滚动**：导出预览弹窗添加可见滚动条样式，切片和单图视图均可完整预览
-- **导出引擎 v5.2**：在 v5.1 基础上的全面 WYSIWYG 稳定版
-
-### v1.9.3
-
-- **修复导出空白**：v5.0 导出引擎传入了错误的 x/y/windowWidth 参数导致 html2canvas 坐标双重偏移，v5.1 移除这些参数，让 html2canvas 自动处理元素定位
-- **修复弹窗冲突**：导出流程改为先渲染再弹窗，消除 overlay display 状态与渲染的冲突
-- **简化导出准备**：toolbar/overlay/toast 不在 editorEl 子树中，html2canvas 不会渲染它们，无需在 prepareForExport 中隐藏
-- **导出引擎 v5.1**：在 v5.0 实时 DOM 渲染基础上的稳定修正版，保留 SVG var() 预解析 + CSS 降级 + 自动恢复
-
-### v1.9.2
-
-- **导出引擎 v5.0**：彻底重写，直接在实时 DOM 上渲染，告别离屏克隆方案
-- **修复导出 WYSIWYG**：94 个 CSS var() 引用全部由浏览器原生 cascade 解析，背景、边框、阴影、圆角不再丢失
-- **修复伪元素**：::before/::after 中的 var() 装饰效果完整保留
-- **修复 SVG**：SVG 属性中的 var() 渲染前预解析，渲染后自动恢复
-- **优化安全恢复**：所有临时修改（backdrop-filter 降级、background-clip:text 降级）渲染后自动恢复，try/finally 保护确保 DOM 完好
-
-### v1.9.1
-
-- 导出引擎 v4.0，CSS 变量预解析 + backdrop-filter 降级 + 渐变文字降级
-- 切片导出 + 单图导出双模式，可在预览弹窗中切换
-- 导出进度条，实时显示渲染阶段
-- 导出预览弹窗重设计（模式切换 tab、进度条、信息栏、footer 布局）
-
-### v1.9.0
-
-- UI 品质全面恢复：移除 emoji 垃圾，工具栏全部恢复 SVG 矢量图标
-- 导出弹窗重构：dialog 嵌套回 overlay，点击背景可关闭
-- 毛玻璃效果恢复：saturate(180%) blur(24px)
-- Toast 改回顶部居中毛玻璃样式
-- 编辑器 v3.0：基于 v1.7 精致水准重建
-
-### v1.8.3
-
-- **紧急修复**: 恢复 v1.7.0 的 viewport 设置，修复 v1.8.x 系列的视觉品质问题
-- **删除强制样式**: 移除破坏原有设计的 `!important` 覆盖规则
-- **功能保留**: 自定义字体、可选分辨率、WebChat下载等功能仍然可用
-
-### v1.8.2
-
-- **新增可选择的导出分辨率**：支持 `--scale 2x|3x|1080` 参数，默认 2x (750px)
-  - `2x` = 750px (标准高清，文件小，加载快)
-  - `3x` = 1125px (超高清，适合精细展示)
-  - `1080` = 1080px (兼容旧版本，公众号封面标准尺寸)
-- **新增编辑器自定义字体功能**：字体选择器新增"📝 自定义字体..."选项，支持输入任意 CSS 字体名称
-- **新增 WebChat 渠道支持**：在 OpenClaw Web UI 中使用时会生成带下载按钮的页面
-- **修复代码问题**：删除 render-image.js 中的重复代码块
-- **优化默认设置**：默认导出 2x 分辨率，平衡画质和文件大小
-
-### v1.8.1
-
-- **新增自动推送功能**：生成 HTML 后自动推送到当前会话（支持飞书/Discord/Slack）
-- **新增发布说明生成器**：`tianphoto-release-notes` skill，升级后自动生成图文发布说明
-- **固定宽度 375px**：移动端标准宽度，导出与预览完全一致（所见即所得）
-- **新增字体编辑功能**：编辑器支持 6 种字体选择（系统默认、优雅宋体、现代黑体、手写风格、商务正式、科技感）
-- **稳定版编辑器 v2.0**：重写 `editor-stable.js`，更稳定的初始化逻辑
-- **优化调用能力**：改进 skill description 和触发关键词，提升识别准确率
-- **增强导出质量**：统一视口宽度，2.88x 缩放达到 1080px 高清输出
-- **改进 README**：补充安装依赖说明和自动推送文档
-
-### v1.7.0
-
-- 把 36 套 preset 升级成“14 个风格家族 + 36 个 archetype”的体系，不再只是换色
-- 新增 `references/style-families.md`，先按 family 选版式人格，再落到具体 preset
-- `render-image.js` 会在渲染前自动补齐 `data-style-family` 与 `data-style-archetype`，并按 family 调整 divider 策略
-- 大幅增强 `article-theme.css` 和 `free-base.css` 的 family 覆盖层，让 `rule` / `free` 都有更清晰的版式人格
-- `/tp doctor` 现在会显示 family / archetype 数量，并在诊断 `*-page.html` 时只分析真正的 `<article>`
-
-### v1.6.1
-
-- 继续强化 `free` 模式：默认采用 helpers-first 与 variables-first 策略，先使用 `tp-free-*` 轻组件再做自定义增强
-- 新增 `references/free-mode.md`，补上 free 模式的正确起手方式、变量使用规则与示例骨架
-- 提升 `free-base.css` 的前端能力，强化 `tp-free-hero`、`tp-free-panel`、`tp-free-stat` 等组件的默认视觉层次
-- 增强 `/tp doctor` 页面诊断：可识别 free helper 使用情况、危险网格与硬编码颜色
-- UI 配置新增 `updated_at` 记录，方便追踪当前模式切换时间
-
-### v1.6.0
-
-- 新增 `/tp ui rule` 与 `/tp ui free [count]`，把内容模式和 UI 模式彻底拆开
-- 新增自由模式轻底盘 `free-base.css`，让 AI 可以在手机视觉约束内更自由地组织前端页面
-- 新增 `/tp doctor` 诊断命令，可查看当前版本、UI 模式、logo、Chrome、预设数与可选页面诊断
-- 本地设置持久化新增 `ui.mode` 与 `ui.free_variants`，默认自由模式一次抽卡 2 版，最大 5 版
-- 更新 skill 主文档，优先识别 `ui / doctor` 指令，并补齐 `rule / free` 双工作流说明
-
-### v1.5.2
-
-- 删除 README 顶部的发布流程提示，只保留产品介绍与使用说明
-- 进一步提高资讯 / 早报类页面的审美要求，这类页面默认去掉装饰分割线，依靠留白与标题层级组织信息
-- 新增 `editorial-notch` 极简分割线，并把渲染器的自动处理策略改成“资讯页优先删分割线，科技页才保留结构化分割”
-- 强化审美守卫，禁止编辑型页面依赖装饰件硬切章节
-
-### v1.5.1
-
-- 重做 `wx-divider-ornament` 的默认审美策略，不再鼓励通用圆环分隔线反复出现
-- 渲染器会自动把旧页面里的通用圆环分隔线替换为更适合当前主题的款式
-- 增加分割线数量守卫，移动端页面默认控制在 0-2 个章节分隔
-- 强化分割线基础样式和主题适配，让暖色杂志风与科技风的章节转场更协调
-- 新增基于 Git tag 的 GitHub Release 工作流，版本发布记录不再依赖本地 `gh` 登录状态
-
-### v1.5.0
-
-- 增加视觉质量保护，拦截轻主题中低对比、看起来像空白占位的装饰 SVG
-- 增加移动端网格保护，禁止 metric / compare 区域生成 3 列以上的信息卡
-- 强化图形容器基础样式，让 `wx-inline-graphic` 和 `wx-badge-art` 更有存在感
-- 补强技能规范，禁止把内部制作口吻和预设元信息直接写进成品页面
-- 重做 demo 方向，强调结果展示而不是解释说明
-
-### v1.4.2
-
-- 调整 README 结构，把版本更新记录统一保留在文档底部
-- 在快速开始中补充 OpenClaw 使用说明
-- 明确补充飞书内容场景支持与注意事项
-
-### v1.4.1
-
-- README 底部新增常驻版本更新记录，便于在 GitHub 页面直接查看历史变化
-- 进一步强化视觉生成规范，要求生成前先明确 art direction，再组织标题、配色、装饰和节奏
-- 明确要求“风格多样性”来自布局语言、装饰系统和卡片组织，不只是换色
-
-### v1.4.0
-
-- 增加结构清洗与校验，避免误把完整 HTML 页面再次包装成坏结构
-- 增加本地 `local-settings.json` 配置层，持久化 logo 标题、副标题和开关
-- 增加 `/tp logo title <text>` 与 `/tp logo subtitle <text>` 指令
-- 明确 `/tp style list` 和 `/tp help` 是纯文本快速返回命令
-- 统一 skill 路径表述，减少对 `~/.claude/skills/` 的硬编码依赖
-
-### v1.3.1
-
-- 每次生成前静默检查 GitHub 远端版本，发现新版本时给出升级提醒
-
-### v1.3.0
-
-- 新增 `/tp select auto|full|compact` 三档内容模式
-- 根据文章类型自动判断保留全文还是压缩摘要
-
-### v1.2.0
-
-- 强化 HTML 模板约束和 class 白名单
-- 明确要求只生成 `<article>` 片段，减少结构错误
-
-### v1.1.0
-
-- 去除对完整 Puppeteer 下载的依赖，改为优先使用系统 Chrome
-- 增加版本管理与更新机制
+- **最推荐的产物永远是 HTML**
+- PNG 导出更适合作为发布补充
+- 飞书、公告、周报、知识文都更适合先生成 HTML 再微调
+- 如果你在做品牌页或复杂内容，优先在 `rule` 模式下拿到稳定底稿，再考虑 `free`
 
 ## License
 
