@@ -851,8 +851,8 @@
     editorEl = document.querySelector('.article-container');
     if (!editorEl) return;
 
-    editorEl.setAttribute('contenteditable', 'true');
-
+    // Keep the root container non-editable so Chrome doesn't add a trailing
+    // editing line box that changes the exported canvas height.
     editorEl.addEventListener('mouseup', captureSelection);
     editorEl.addEventListener('keyup', captureSelection);
 
