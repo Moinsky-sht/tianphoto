@@ -2,7 +2,7 @@
 
 将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
 
-当前版本：**v1.9.5**
+当前版本：**v1.9.6**
 
 ## 30 秒快速开始
 
@@ -18,7 +18,7 @@ node scripts/tp-config.js logo title "品牌名"
 node scripts/tp-config.js logo subtitle "副标题"
 ```
 
-7. 生成后直接打开桌面上的 `*-page.html`，可继续编辑或导出 PNG。
+7. 生成后直接打开桌面 `~/Desktop/tianphoto-iterations/` 里的 `*-page.html`，可继续编辑或导出 PNG。
 8. 如果你想切换 UI 策略：
 
 ```bash
@@ -74,7 +74,7 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 在 Claude Code 中输入以下指令即可触发：
 
 - `/tp` — 启动 Tianphoto
-- `/tp style list` — 查看 36 套预设风格（现归入 14 个风格家族）
+- `/tp style list` — 查看 37 套预设风格（现归入 15 个风格家族）
 - `/tp style <preset-id>` — 指定风格（如 `aurora-glass`）
 - `/tp select auto` — 自动判断内容详略（默认）
 - `/tp select full` — 完整保留原文内容
@@ -100,18 +100,20 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 
 - **网页优先，图片可选** — 生成自包含可编辑 HTML 网页
 - **固定宽度 375px** — 移动端标准宽度，导出与预览一致（所见即所得）
-- **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片，支持系统字体与智能范围字体应用
+- **内置编辑器** — 在浏览器中直接编辑文字、拖拽插入图片，聚焦排版、对齐和插图等高频操作
 - **一键导出** — 按卡片智能切片导出 PNG（所见即所得）
-- **导出预览升级** — 主舞台预览 + 缩略条 + “完整适配 / 原始宽度”切换，长图检查更直观
+- **导出预览升级** — 主舞台预览 + 缩略条 + “完整适配 / 原始宽度”切换，默认打开完整图的原始宽度视图
 - **自动封面** — 导出时自动生成公众号 2.35:1 头条封面图
 - **自动推送** — 生成后自动推送到当前会话（支持飞书/Discord/Slack）
-- **36 套预设** — 覆盖科技、商业、文艺、暗色等多种风格
-- **14 个风格家族** — preset 不再只是换色，而是先确定 family，再落到具体 archetype 和 preset
+- **37 套预设** — 覆盖科技、商业、文艺、暗色与品牌发布等多种风格
+- **15 个风格家族** — preset 不再只是换色，而是先确定 family，再落到具体 archetype 和 preset
+- **全新风格家族** — `studio-ribbon / opal-ribbon` 带来更轻盈的品牌发布与案例展示审美
 - **智能内容模式** — auto/full/compact 三档，自动识别文章类型适配详略
 - **双 UI 模式** — `rule` 走稳定组件化，`free` 走手机端自由构建
 - **自由模式有底盘** — `free` 默认优先使用 `tp-free-*` 轻组件，再让 AI 自定义增强
 - **自由抽卡** — `free` 模式默认一次出 2 版，可提高到 5 版
 - **Logo 支持** — 在 `logos/` 目录放入 `brand-logo.png` 即可启用品牌横幅
+- **桌面迭代目录** — 默认将每次生成的 HTML 放到 `~/Desktop/tianphoto-iterations/`，并自动带时间戳
 - **结构校验** — 自动清洗误传的完整 HTML 页面，避免重复包裹导致坏结构
 - **本地配置** — logo 标题、副标题、开关写入本地配置，重复使用更稳定
 - **Doctor 自检** — 一条命令查看当前版本、模式、logo、Chrome、预设数、family 数和页面诊断
@@ -128,7 +130,8 @@ ln -s ~/.claude/skills/tianphoto ~/.codex/skills/tianphoto
 | dawn-journal | 曦白札记 | 知识、观点 |
 | jade-zen | 青玉留白 | 禅意阅读 |
 | pearl-board | 珍珠简报 | 品牌商业 |
-| ... | 共 36 套 | `/tp style list` 查看全部 |
+| opal-ribbon | 欧泊缎带 | 品牌发布、案例展示 |
+| ... | 共 37 套 | `/tp style list` 查看全部 |
 
 ## 目录结构
 
@@ -142,10 +145,11 @@ tianphoto/
 ├── assets/
 │   ├── article-theme.css   # 文章主题样式
 │   ├── free-base.css       # 自由模式轻底盘
-│   ├── editor-stable.js    # 稳定版编辑器 v5.3（WYSIWYG + 预览/字体工作流升级）
+│   ├── editor-stable.js    # 稳定版编辑器 v5.6（WYSIWYG + 预览升级 + 精简工具栏）
 │   ├── html2canvas.min.js  # 渲染依赖
-│   └── presets.json        # 36 套预设配置
+│   └── presets.json        # 37 套预设配置
 ├── release-v1.9.5.md       # v1.9.5 发布说明
+├── release-v1.9.6.md       # v1.9.6 发布说明
 ├── scripts/
 │   ├── render-image.js     # 渲染脚本
 │   ├── push-to-session.js  # 自动推送脚本
@@ -188,6 +192,14 @@ git status --short
 ```
 
 ## 更新日志
+
+### v1.9.6
+
+- **编辑器简化**：移除字体设置入口，工具栏回到更实用的排版、对齐、插图、保存、导出主路径
+- **新增对齐工具**：补上左对齐 / 居中 / 右对齐按钮，直接对块级内容生效
+- **审美升级**：编辑器改成浮动玻璃坞，导出弹窗改成更完整的宽幅预览舞台
+- **全新风格**：新增 `opal-ribbon`，并引入第 15 个风格家族 `studio-ribbon`
+- **迭代目录**：默认输出到桌面 `tianphoto-iterations`，每次 HTML 自动带时间戳，便于连续比对版本
 
 ### v1.9.5
 

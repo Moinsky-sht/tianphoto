@@ -94,7 +94,7 @@ $SKILL_DIR/logos/brand-logo.png
 - `/tp style comet-neon` — 彗星霓光（暗色发布）
 - `/tp style jade-zen` — 青玉留白（禅意阅读）
 
-完整的 36 套预设见下方速查表。
+完整的 37 套预设见下方速查表。
 
 ### `/tp style list`
 列出所有可用预设，附带预览说明。直接返回纯文本速查表，不要开始生成。
@@ -741,10 +741,10 @@ node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--l
 
 ## 输出文件
 
-- `{name}-page.html` — 自包含可编辑网页（始终生成）
+- `~/Desktop/tianphoto-iterations/{name}-{timestamp}-page.html` — 自包含可编辑网页（默认始终生成）
 - `{name}.png` 或 `{name}_01.png` ... — PNG 图片（仅 --png 时）
 
-## 36 套预设速查
+## 37 套预设速查
 
 | ID | 名称 | 皮肤 | 适用 |
 |----|------|------|------|
@@ -784,6 +784,7 @@ node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--l
 | obsidian-notes | 曜石手记 | mono-dark | 夜读（暗色） |
 | peach-bloom | 桃雾晨刊 | glass | 生活品牌 |
 | ink-editorial | 墨色社刊 | magazine | 纪实报道 |
+| opal-ribbon | 欧泊缎带 | soft | 品牌发布、案例展示 |
 
 ## 新功能：自动推送到会话
 
@@ -862,27 +863,7 @@ node render-image.js article.html --png --scale 3x
 node render-image.js article.html --png --scale 1080
 ```
 
-## 新功能：自定义字体
-
-Tianphoto v1.8.2+ 编辑器支持**自定义字体**。
-
-### 使用方法
-
-1. 在编辑器工具栏的字体选择器中，选择"📝 自定义字体..."
-2. 输入标题字体（CSS font-family 格式）
-3. 输入正文字体（CSS font-family 格式）
-4. 字体立即应用到页面
-
-### 示例字体
-
-```
-标题: "Adobe Heiti", "PingFang SC", sans-serif
-正文: "Adobe Songti", "Songti SC", serif
-```
-
-自定义字体会自动保存到浏览器本地存储，下次打开时仍然可用。
-
 ---
 
-**版本**: v1.8.2  
+**版本**: v1.9.6  
 **GitHub**: https://github.com/Moinsky-sht/tianphoto

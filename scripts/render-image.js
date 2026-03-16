@@ -7,7 +7,7 @@
  *   node render-image.js <html-file> [options]
  *
  * Options:
- *   --output <dir>        Output directory (default: same dir as html file)
+ *   --output <dir>        Output directory (default: ~/Desktop/tianphoto-iterations)
  *   --preset <id>         Preset ID from presets.json (overrides HTML preset)
  *   --logo <path>         Path to logo image to inject into brand banner
  *   --logo-title <text>   Override logo title text
@@ -21,6 +21,7 @@
  */
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { execSync } = require("child_process");
 const { loadSettings } = require("./settings");
@@ -29,6 +30,20 @@ const SKILL_DIR = path.resolve(__dirname, "..");
 const CSS_PATH = path.join(SKILL_DIR, "assets", "article-theme.css");
 const FREE_CSS_PATH = path.join(SKILL_DIR, "assets", "free-base.css");
 const PRESETS_PATH = path.join(SKILL_DIR, "assets", "presets.json");
+const DEFAULT_OUTPUT_DIR = path.join(os.homedir(), "Desktop", "tianphoto-iterations");
+
+function buildTimestampLabel(date = new Date()) {
+  const parts = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+    "-",
+    String(date.getHours()).padStart(2, "0"),
+    String(date.getMinutes()).padStart(2, "0"),
+    String(date.getSeconds()).padStart(2, "0"),
+  ];
+  return parts.join("");
+}
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -511,9 +526,9 @@ function buildLogoHtml(logoOptions) {
 
 const MOBILE_WIDTH = 375; // 移动端逻辑宽度（用于CSS变量）
 const EXPORT_SCALE_OPTIONS = {
-  '2x': { width: 750, dpr: 2 },      // 750px - 标准高清
-  '3x': { width: 1125, dpr: 3 },     // 1125px - 超高清
-  '1080': { width: 1080, dpr: 2 }    // 1080px - 兼容旧版本
+  '2x': { viewportWidth: 750, outputWidth: 750 },      // 750px - 标准高清
+  '3x': { viewportWidth: 1125, outputWidth: 1125 },    // 1125px - 超高清
+  '1080': { viewportWidth: 1080, outputWidth: 1080 }   // 1080px - 兼容旧版本
 };
 // 默认使用 1080px（与 v1.7.0 保持一致）
 const DEFAULT_SCALE = '1080';
@@ -545,30 +560,6 @@ ${htmlContent}
 </div>
 <script>${html2canvasJs}<\/script>
 <script>${editorJs}<\/script>
-</body>
-</html>`;
-}
-
-function buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml) {
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=1080">
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { margin: 0; padding: 0; }
-:root {
-${cssVarsBlock}
-}
-${cssBundle}
-</style>
-</head>
-<body>
-<div class="export-surface">
-${logoHtml}
-${htmlContent}
-</div>
 </body>
 </html>`;
 }
@@ -638,7 +629,7 @@ function loadPuppeteer() {
   return null;
 }
 
-async function exportPng(exportHtml, outputDir, baseName, sliceHeight, scaleOption = DEFAULT_SCALE) {
+async function exportPng(pagePath, outputDir, baseName, sliceHeight, scaleOption = DEFAULT_SCALE) {
   const puppeteer = loadPuppeteer();
   if (!puppeteer) {
     console.error([
@@ -660,9 +651,6 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight, scaleOpti
   }
   console.log(`Using browser: ${chromePath}`);
 
-  const tempPath = path.join(outputDir, `_export_temp_${Date.now()}.html`);
-  fs.writeFileSync(tempPath, exportHtml, "utf-8");
-
   const browser = await puppeteer.launch({
     headless: "new",
     executablePath: chromePath,
@@ -671,51 +659,64 @@ async function exportPng(exportHtml, outputDir, baseName, sliceHeight, scaleOpti
 
   try {
     const page = await browser.newPage();
-    
-    // 获取缩放配置
+
     const scaleConfig = EXPORT_SCALE_OPTIONS[scaleOption] || EXPORT_SCALE_OPTIONS[DEFAULT_SCALE];
-    
-    // 恢复 v1.7.0 的 viewport 设置方式
-    await page.setViewport({ 
-      width: scaleConfig.width, 
+    const outputScale = scaleConfig.outputWidth / MOBILE_WIDTH;
+
+    // 维持桌面预览同款断点，同时把最终截图缩放到目标像素宽度。
+    await page.setViewport({
+      width: scaleConfig.viewportWidth,
       height: 800, 
-      deviceScaleFactor: scaleConfig.dpr 
+      deviceScaleFactor: outputScale
     });
-    
-    await page.goto(`file://${tempPath}`, { waitUntil: "networkidle0", timeout: 30000 });
-    await page.evaluate(() => document.fonts.ready);
+
+    await page.goto(`file://${pagePath}`, { waitUntil: "networkidle0", timeout: 30000 });
+    await page.waitForSelector(".article-container");
+    await page.addStyleTag({
+      content: ".editor-toolbar, .export-overlay, .editor-toast { display: none !important; }"
+    });
+    await page.evaluate(() => (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve());
     await new Promise((r) => setTimeout(r, 500));
 
     const dims = await page.evaluate(() => {
-      const el = document.querySelector(".export-surface");
-      return { width: el.scrollWidth, height: el.scrollHeight };
+      const el = document.querySelector(".article-container");
+      const rect = el.getBoundingClientRect();
+      return {
+        x: rect.left + window.scrollX,
+        y: rect.top + window.scrollY,
+        width: Math.round(rect.width),
+        height: Math.max(Math.ceil(rect.height), el.scrollHeight)
+      };
     });
 
-    console.log(`Export dimensions: ${dims.width}x${dims.height} (${scaleOption} mode)`);
+    const outputWidth = Math.round(dims.width * outputScale);
+    const outputHeight = Math.round(dims.height * outputScale);
+    console.log(`Export layout: ${dims.width}x${dims.height} CSS px -> ${outputWidth}x${outputHeight} px (${scaleOption} mode)`);
 
-    if (sliceHeight <= 0 || dims.height <= sliceHeight) {
+    if (sliceHeight <= 0 || outputHeight <= sliceHeight) {
       const outPath = path.join(outputDir, `${baseName}.png`);
-      const surface = await page.$(".export-surface");
+      const surface = await page.$(".article-container");
       await surface.screenshot({ path: outPath, type: "png" });
       console.log(`PNG: ${outPath}`);
     } else {
-      const count = Math.ceil(dims.height / sliceHeight);
+      const sliceCssHeight = sliceHeight / outputScale;
+      const count = Math.ceil(dims.height / sliceCssHeight);
       console.log(`Slicing into ${count} parts`);
       for (let i = 0; i < count; i++) {
-        const y = i * sliceHeight;
-        const h = Math.min(sliceHeight, dims.height - y);
+        const y = i * sliceCssHeight;
+        const h = Math.min(sliceCssHeight, dims.height - y);
         const outPath = path.join(outputDir, `${baseName}_${String(i + 1).padStart(2, "0")}.png`);
-        await page.screenshot({ 
-          path: outPath, 
-          type: "png", 
-          clip: { x: 0, y, width: dims.width, height: h }
+        await page.screenshot({
+          path: outPath,
+          type: "png",
+          clip: { x: dims.x, y: dims.y + y, width: dims.width, height: h },
+          captureBeyondViewport: true
         });
-        console.log(`PNG: ${outPath} (${h}px)`);
+        console.log(`PNG: ${outPath} (${Math.round(h * outputScale)}px)`);
       }
     }
   } finally {
     await browser.close();
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
   }
 }
 
@@ -738,7 +739,8 @@ async function main() {
     process.exit(1);
   }
 
-  const outputDir = args.output ? path.resolve(args.output) : path.join(require("os").homedir(), "Desktop");
+  const useDefaultOutputDir = !args.output;
+  const outputDir = useDefaultOutputDir ? DEFAULT_OUTPUT_DIR : path.resolve(args.output);
   const sliceHeight = parseInt(args["slice-height"] || "1520", 10);
   const wantPng = !!args.png;
 
@@ -760,6 +762,9 @@ async function main() {
   const cssVarsBlock = Object.entries(allVars).map(([k, v]) => `  ${k}: ${v};`).join("\n");
   const logoHtml = buildLogoHtml(resolveLogoOptions(args));
   const baseName = path.basename(htmlFile, path.extname(htmlFile));
+  const outputBaseName = useDefaultOutputDir
+    ? `${baseName}-${buildTimestampLabel()}`
+    : baseName;
 
   console.log(`Preset: ${preset.id} (${preset.name})`);
   if (hadOuterDocument) {
@@ -779,7 +784,7 @@ async function main() {
 
   // 1. Always output standalone HTML page
   const standaloneHtml = buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml);
-  const htmlOutPath = path.join(outputDir, `${baseName}-page.html`);
+  const htmlOutPath = path.join(outputDir, `${outputBaseName}-page.html`);
   fs.writeFileSync(htmlOutPath, standaloneHtml, "utf-8");
   console.log(`HTML page: ${htmlOutPath}`);
 
@@ -802,9 +807,8 @@ async function main() {
 
   // 3. Optionally export PNG
   if (wantPng) {
-    const exportHtml = buildExportPage(htmlContent, cssBundle, cssVarsBlock, logoHtml);
-    const scaleOption = args.scale || '2x'; // 默认 2x (750px)
-    await exportPng(exportHtml, outputDir, baseName, sliceHeight, scaleOption);
+    const scaleOption = args.scale || DEFAULT_SCALE;
+    await exportPng(htmlOutPath, outputDir, outputBaseName, sliceHeight, scaleOption);
   }
 }
 

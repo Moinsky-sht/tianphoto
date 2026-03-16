@@ -1147,6 +1147,38 @@
       },
       "family": "archive-paper",
       "archetype": "press-feature"
+    },
+    {
+      "id": "opal-ribbon",
+      "name": "欧泊缎带",
+      "short": "Opal Ribbon",
+      "description": "带一点高级品牌发布页的轻盈与秩序，适合新品、案例和设计向内容。",
+      "skin": "soft",
+      "tags": [
+        "品牌",
+        "新品",
+        "案例",
+        "设计感"
+      ],
+      "vars": {
+        "--accent": "#4f8f9f",
+        "--accent-strong": "#295968",
+        "--accent-soft": "#eaf7f9",
+        "--paper": "#fbfffe",
+        "--surface": "rgba(255, 255, 255, 0.86)",
+        "--surface-strong": "rgba(243, 249, 249, 0.96)",
+        "--text-main": "#1d2d34",
+        "--text-muted": "#627983",
+        "--phone-bg": "radial-gradient(circle at 16% 0%, rgba(170, 223, 229, 0.34), transparent 28%), linear-gradient(180deg, #fbfffe 0%, #edf6f6 100%)",
+        "--hero-grad-a": "#d7eff3",
+        "--hero-grad-b": "#77bcc8",
+        "--hero-fade": "rgba(119, 188, 200, 0.18)",
+        "--frame-shadow": "0 28px 70px rgba(79, 143, 159, 0.18)",
+        "--card-shadow": "0 22px 48px rgba(41, 89, 104, 0.10)",
+        "--heading-font": "\"Canela\", \"Baskerville\", \"Songti SC\", serif"
+      },
+      "family": "studio-ribbon",
+      "archetype": "launch-ribbon"
     }
   ]
 }
