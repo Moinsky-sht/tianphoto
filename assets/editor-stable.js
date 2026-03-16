@@ -1,12 +1,14 @@
 /**
- * editor-stable.js — Tianphoto 内置编辑器 v4.0
+ * editor-stable.js — Tianphoto 内置编辑器 v5.0
  * 自包含 IIFE，零外部依赖（html2canvas 通过 window.html2canvas 引用）
  *
- * v4.0 重点改进：
- *  - 导出引擎全面重写：CSS 变量预解析、backdrop-filter 降级、渐变文字降级
- *  - 支持切片导出 + 单图导出，可在预览弹窗中切换
- *  - 预览弹窗完全重设计：模式切换、进度条、缩略图、逐张/全部下载
- *  - 导出宽度固定 1080px，scale=2 高清，所见即所得
+ * v5.0 重点改进：
+ *  - 导出引擎彻底重写：直接在实时 DOM 上渲染，CSS 变量由浏览器原生 cascade 解析
+ *  - 告别离屏克隆方案，94 个 var() 引用全部正确渲染
+ *  - SVG 属性 var() 渲染前预解析，渲染后自动恢复
+ *  - backdrop-filter / background-clip:text 临时降级，渲染后自动恢复
+ *  - 支持切片导出 + 单图导出双模式
+ *  - 预览弹窗：模式切换、进度条、缩略图、逐张/全部下载
  */
 (function () {
   'use strict';
@@ -61,7 +63,7 @@
     createExportModal();
     enableEditing();
     bindEvents();
-    console.log('[Tianphoto] Editor v4.0 ready');
+    console.log('[Tianphoto] Editor v5.0 ready');
     showToast('\u7F16\u8F91\u5668\u5DF2\u5C31\u7EEA\uFF0C\u70B9\u51FB\u6587\u5B57\u5373\u53EF\u7F16\u8F91');
   }
 
@@ -338,11 +340,28 @@
   }
 
   /* ═══════════════════════════════════════════════════
-     导出引擎 v4.0 — 所见即所得
+     导出引擎 v5.0 — 实时 DOM 渲染，真正所见即所得
+     ═══════════════════════════════════════════════════
+
+     核心原理：
+     v4.0 的离屏克隆方案有根本缺陷——样式表中 94 个 var() 引用
+     在克隆到离屏 DOM 后无法被 html2canvas 正确解析。
+
+     v5.0 直接在实时 DOM 上渲染。浏览器的 CSS cascade 已经
+     将所有 var() 解析为计算值，html2canvas 通过 getComputedStyle
+     读取到的就是最终渲染值。
+
+     渲染流程：
+     1. 隐藏编辑器 UI（toolbar、overlay、toast）
+     2. 移除 contenteditable 属性
+     3. 预解析 SVG 属性中的 var()（html2canvas 不支持 SVG CSS vars）
+     4. 临时降级 backdrop-filter 和 background-clip:text
+     5. 在实时 DOM 上调用 html2canvas
+     6. 渲染完成后恢复所有临时修改
      ═══════════════════════════════════════════════════ */
 
   /**
-   * 收集页面上所有 :root CSS 变量的计算值，返回 { name: computedValue } 对象。
+   * 收集页面上所有 :root CSS 变量的计算值
    */
   function collectCssVars() {
     var computed = getComputedStyle(document.documentElement);
@@ -367,134 +386,156 @@
   }
 
   /**
-   * 在 clone 的 DOM 树上做 html2canvas 兼容处理：
-   * 1) 将所有 var(--xxx) 内联替换为计算值
-   * 2) 将 backdrop-filter 元素加不透明兜底背景
-   * 3) 将 -webkit-background-clip:text 渐变文字降级为纯色
-   * 4) 将 SVG 中的 var() 替换为计算值
+   * 在实时 DOM 上做导出前的临时修改，返回 restore 函数用于恢复。
+   * 所有修改都是可逆的，确保渲染后 DOM 完好无损。
    */
-  function patchForExport(root, vars) {
-    // 1) 替换 SVG 中的 var() 引用
-    root.querySelectorAll('svg').forEach(function (svg) {
-      svg.innerHTML = svg.innerHTML.replace(/var\(\s*(--[\w-]+)\s*\)/g, function (match, name) {
-        return vars[name] || match;
-      });
+  function prepareForExport() {
+    var vars = collectCssVars();
+    var restoreOps = [];
+
+    // 1) 隐藏编辑器 UI
+    var uiElements = document.querySelectorAll('.editor-toolbar, .export-overlay, .editor-toast');
+    uiElements.forEach(function (el) {
+      var prev = el.style.display;
+      el.style.display = 'none';
+      restoreOps.push(function () { el.style.display = prev; });
     });
 
-    // 2) 将所有元素的 inline style 中的 var() 替换
-    root.querySelectorAll('*').forEach(function (el) {
-      if (el.style && el.style.cssText) {
-        var patched = el.style.cssText.replace(/var\(\s*(--[\w-]+)(?:\s*,\s*([^)]+))?\s*\)/g, function (match, name, fallback) {
-          return vars[name] || fallback || match;
-        });
-        if (patched !== el.style.cssText) el.style.cssText = patched;
+    // 2) 移除 contenteditable（影响渲染样式：光标、选区高亮等）
+    var editableEls = editorEl.querySelectorAll('[contenteditable]');
+    var editorWasEditable = editorEl.getAttribute('contenteditable');
+    if (editorWasEditable) {
+      editorEl.removeAttribute('contenteditable');
+      restoreOps.push(function () { editorEl.setAttribute('contenteditable', editorWasEditable); });
+    }
+    editableEls.forEach(function (el) {
+      var val = el.getAttribute('contenteditable');
+      el.removeAttribute('contenteditable');
+      restoreOps.push(function () { el.setAttribute('contenteditable', val); });
+    });
+
+    // 3) 预解析 SVG 属性中的 var()
+    //    html2canvas 无法解析 SVG 属性（fill, stroke, stop-color 等）中的 var() 引用
+    //    即使在实时 DOM 上也是如此，因为这些是 SVG 属性而非 CSS 属性
+    editorEl.querySelectorAll('svg').forEach(function (svg) {
+      var original = svg.innerHTML;
+      var patched = original.replace(/var\(\s*(--[\w-]+)\s*\)/g, function (match, name) {
+        return vars[name] || match;
+      });
+      if (patched !== original) {
+        svg.innerHTML = patched;
+        restoreOps.push(function () { svg.innerHTML = original; });
       }
     });
 
-    // 3) 处理 backdrop-filter → 不透明兜底
-    root.querySelectorAll('*').forEach(function (el) {
+    // 4) 处理 inline style 中的 var()
+    //    html2canvas 对 inline style 中的 var() 支持不完整
+    editorEl.querySelectorAll('*').forEach(function (el) {
+      if (el.style && el.style.cssText && /var\(/.test(el.style.cssText)) {
+        var origCss = el.style.cssText;
+        var patched = origCss.replace(/var\(\s*(--[\w-]+)(?:\s*,\s*([^)]+))?\s*\)/g, function (match, name, fallback) {
+          return vars[name] || (fallback ? fallback.trim() : '') || match;
+        });
+        if (patched !== origCss) {
+          el.style.cssText = patched;
+          restoreOps.push(function () { el.style.cssText = origCss; });
+        }
+      }
+    });
+
+    // 5) 降级 backdrop-filter（html2canvas 不支持）
+    //    给半透明背景的元素加不透明兜底
+    editorEl.querySelectorAll('*').forEach(function (el) {
       var cs = getComputedStyle(el);
       var bf = cs.getPropertyValue('backdrop-filter') || cs.getPropertyValue('-webkit-backdrop-filter');
       if (bf && bf !== 'none') {
+        var origBd = el.style.backdropFilter || '';
+        var origWbd = el.style.webkitBackdropFilter || '';
+        var origBg = el.style.backgroundColor || '';
         var bg = cs.backgroundColor;
-        // 如果背景是半透明的，增加不透明度
         if (bg && /rgba/.test(bg)) {
-          var opaqueBg = bg.replace(/,\s*[\d.]+\)$/, ', 0.95)');
-          el.style.backgroundColor = opaqueBg;
+          el.style.backgroundColor = bg.replace(/,\s*[\d.]+\)$/, ', 0.95)');
         }
         el.style.backdropFilter = 'none';
         el.style.webkitBackdropFilter = 'none';
+        restoreOps.push(function () {
+          el.style.backdropFilter = origBd;
+          el.style.webkitBackdropFilter = origWbd;
+          el.style.backgroundColor = origBg;
+        });
       }
     });
 
-    // 4) 处理 -webkit-background-clip:text → 降级为纯色
-    root.querySelectorAll('*').forEach(function (el) {
+    // 6) 降级 -webkit-background-clip: text（html2canvas 不支持）
+    //    将渐变文字降级为 accent-strong 纯色
+    editorEl.querySelectorAll('*').forEach(function (el) {
       var cs = getComputedStyle(el);
       var bgClip = cs.getPropertyValue('-webkit-background-clip') || cs.getPropertyValue('background-clip');
       if (bgClip === 'text') {
+        var origClip = el.style.backgroundClip || '';
+        var origWClip = el.style.webkitBackgroundClip || '';
+        var origFill = el.style.webkitTextFillColor || '';
+        var origColor = el.style.color || '';
+        var origBgImg = el.style.backgroundImage || '';
         el.style.backgroundClip = 'border-box';
         el.style.webkitBackgroundClip = 'border-box';
         el.style.webkitTextFillColor = 'unset';
         el.style.color = vars['--accent-strong'] || cs.color;
         el.style.backgroundImage = 'none';
+        restoreOps.push(function () {
+          el.style.backgroundClip = origClip;
+          el.style.webkitBackgroundClip = origWClip;
+          el.style.webkitTextFillColor = origFill;
+          el.style.color = origColor;
+          el.style.backgroundImage = origBgImg;
+        });
       }
     });
-  }
-
-  /**
-   * 将 :root CSS 变量注入到 export surface，使 html2canvas 能读取
-   */
-  function injectVarsToSurface(surface, vars) {
-    var cssText = surface.style.cssText || '';
-    Object.keys(vars).forEach(function (name) {
-      cssText += name + ':' + vars[name] + ';';
-    });
-    surface.style.cssText = cssText;
-  }
-
-  /**
-   * 创建导出用的离屏 DOM 容器，已做所有 html2canvas 兼容处理。
-   * 返回 { surface, cleanup }
-   */
-  function createExportSurface() {
-    var vars = collectCssVars();
-
-    var surface = document.createElement('div');
-    surface.className = 'export-surface';
-    // 读取页面实际背景色
-    var pageBg = getComputedStyle(document.body).backgroundColor;
-    var containerBg = getComputedStyle(editorEl).backgroundColor;
-    surface.style.cssText =
-      'position:fixed;left:-9999px;top:0;' +
-      'width:' + MOBILE_WIDTH + 'px;' +
-      'overflow:hidden;' +
-      'background:' + (containerBg !== 'rgba(0, 0, 0, 0)' ? containerBg : pageBg) + ';';
-
-    injectVarsToSurface(surface, vars);
-
-    // 克隆内容
-    var content = editorEl.cloneNode(true);
-    content.removeAttribute('contenteditable');
-    content.removeAttribute('spellcheck');
-    content.style.width = MOBILE_WIDTH + 'px';
-    content.style.maxWidth = MOBILE_WIDTH + 'px';
-    content.querySelectorAll('[contenteditable]').forEach(function (el) { el.removeAttribute('contenteditable'); });
-    content.querySelectorAll('.editor-toolbar, .export-overlay, .editor-toast').forEach(function (el) { el.parentNode.removeChild(el); });
-
-    // 关键：对 clone 做 html2canvas 兼容处理
-    patchForExport(content, vars);
-
-    surface.appendChild(content);
-    document.body.appendChild(surface);
 
     return {
-      surface: surface,
-      cleanup: function () { document.body.removeChild(surface); }
+      vars: vars,
+      restore: function () {
+        // 按逆序恢复，确保嵌套修改正确还原
+        for (var i = restoreOps.length - 1; i >= 0; i--) {
+          try { restoreOps[i](); } catch (e) { console.warn('[Tianphoto] Restore error:', e); }
+        }
+      }
     };
   }
 
   /**
-   * 核心渲染：将 surface 渲染为 canvas
+   * 核心渲染：在实时 DOM 上渲染为 canvas
    */
-  async function renderToCanvas(surface) {
+  async function renderToCanvas() {
     // 等待渲染稳定
     await new Promise(function (r) { requestAnimationFrame(r); });
-    await new Promise(function (r) { setTimeout(r, 300); });
-    // 再等字体
+    await new Promise(function (r) { setTimeout(r, 200); });
+    // 等字体加载完成
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
-    var canvas = await window.html2canvas(surface, {
-      backgroundColor: null,
+    // 滚动到顶部确保完整渲染
+    var prevScroll = window.scrollY;
+    window.scrollTo(0, 0);
+
+    var canvas = await window.html2canvas(editorEl, {
+      backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff',
       width: MOBILE_WIDTH,
-      height: surface.scrollHeight,
+      height: editorEl.scrollHeight,
       scale: EXPORT_SCALE,
       useCORS: true,
       logging: false,
-      // 关键：让 html2canvas 忽略这些 CSS 属性避免报错
+      windowWidth: MOBILE_WIDTH,
+      x: editorEl.getBoundingClientRect().left + window.scrollX,
+      y: editorEl.getBoundingClientRect().top + window.scrollY,
       ignoreElements: function (el) {
-        return el.classList && (el.classList.contains('editor-toolbar') || el.classList.contains('export-overlay') || el.classList.contains('editor-toast'));
+        if (!el.classList) return false;
+        return el.classList.contains('editor-toolbar') ||
+               el.classList.contains('export-overlay') ||
+               el.classList.contains('editor-toast');
       }
     });
+
+    window.scrollTo(0, prevScroll);
     return canvas;
   }
 
@@ -544,17 +585,28 @@
     dialog.querySelector('.export-gallery').innerHTML = '';
     dialog.querySelector('.export-info').textContent = '';
 
+    var exportPrep = null;
     try {
       if (typeof window.html2canvas !== 'function') throw new Error('html2canvas \u672A\u52A0\u8F7D');
 
-      setProgress(20, '\u6B63\u5728\u5904\u7406 CSS \u53D8\u91CF...');
-      var exp = createExportSurface();
+      setProgress(20, '\u6B63\u5728\u9884\u5904\u7406 DOM...');
+      // 在实时 DOM 上做临时修改（SVG var 解析、backdrop-filter 降级等）
+      exportPrep = prepareForExport();
+
+      // 隐藏弹窗本身以免遮挡渲染
+      overlay.style.display = 'none';
 
       setProgress(40, '\u6B63\u5728\u6E32\u67D3\u56FE\u7247...');
-      var canvas = await renderToCanvas(exp.surface);
-      exp.cleanup();
+      var canvas = await renderToCanvas();
+
+      // 恢复弹窗显示
+      overlay.style.display = '';
 
       setProgress(70, '\u6B63\u5728\u5207\u7247...');
+
+      // 恢复所有临时修改
+      exportPrep.restore();
+      exportPrep = null;
 
       // 生成切片
       exportSlices = sliceCanvas(canvas);
@@ -578,10 +630,16 @@
 
     } catch (err) {
       console.error('Export error:', err);
+      // 确保恢复弹窗显示
+      if (overlay) overlay.style.display = '';
       hideProgress();
       hideExportModal();
       showToast('\u5BFC\u51FA\u5931\u8D25\uFF1A' + (err.message || err), 4000);
     } finally {
+      // 确保即使出错也能恢复 DOM
+      if (exportPrep) {
+        try { exportPrep.restore(); } catch (e) { console.warn('[Tianphoto] Final restore error:', e); }
+      }
       isExporting = false;
     }
   }

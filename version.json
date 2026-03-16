@@ -1,13 +1,14 @@
 {
-  "version": "1.9.1",
+  "version": "1.9.2",
   "repo": "Moinsky-sht/tianphoto",
   "changelog": [
-    "重写：导出引擎 v4.0，CSS 变量预解析 + backdrop-filter 降级 + 渐变文字降级",
-    "新增：切片导出 + 单图导出双模式，可在预览弹窗中切换",
-    "新增：导出进度条，实时显示渲染阶段",
-    "优化：导出预览弹窗重设计（模式切换 tab、进度条、信息栏、footer 布局）",
-    "修复：SVG 中 var() 引用预解析为计算值，确保 html2canvas 正确渲染",
-    "修复：半透明 backdrop-filter 元素加不透明兜底背景",
-    "修复：-webkit-background-clip:text 渐变文字降级为 accent-strong 纯色"
+    "重写：导出引擎 v5.0，彻底告别离屏克隆方案，直接在实时 DOM 上渲染",
+    "修复：94 个 CSS var() 引用在导出时全部正确解析（浏览器原生 cascade）",
+    "修复：样式表中的背景、边框、阴影、圆角等 var() 属性不再丢失",
+    "修复：伪元素（::before/::after）中的 var() 装饰效果完整保留",
+    "修复：SVG 属性 var() 渲染前预解析，渲染后自动恢复",
+    "优化：backdrop-filter / background-clip:text 临时降级，渲染后自动恢复",
+    "优化：导出前自动隐藏编辑器 UI，避免遮挡渲染",
+    "优化：渲染失败时确保 DOM 完好恢复（try/finally 保护）"
   ]
 }

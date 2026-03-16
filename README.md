@@ -2,7 +2,7 @@
 
 将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
 
-当前版本：**v1.8.3**
+当前版本：**v1.9.2**
 
 ## 30 秒快速开始
 
@@ -141,7 +141,7 @@ tianphoto/
 ├── assets/
 │   ├── article-theme.css   # 文章主题样式
 │   ├── free-base.css       # 自由模式轻底盘
-│   ├── editor-stable.js    # 稳定版编辑器 v2.0
+│   ├── editor-stable.js    # 稳定版编辑器 v5.0（实时 DOM 渲染）
 │   ├── html2canvas.min.js  # 渲染依赖
 │   └── presets.json        # 36 套预设配置
 ├── scripts/
@@ -186,6 +186,29 @@ git status --short
 ```
 
 ## 更新日志
+
+### v1.9.2
+
+- **导出引擎 v5.0**：彻底重写，直接在实时 DOM 上渲染，告别离屏克隆方案
+- **修复导出 WYSIWYG**：94 个 CSS var() 引用全部由浏览器原生 cascade 解析，背景、边框、阴影、圆角不再丢失
+- **修复伪元素**：::before/::after 中的 var() 装饰效果完整保留
+- **修复 SVG**：SVG 属性中的 var() 渲染前预解析，渲染后自动恢复
+- **优化安全恢复**：所有临时修改（backdrop-filter 降级、background-clip:text 降级）渲染后自动恢复，try/finally 保护确保 DOM 完好
+
+### v1.9.1
+
+- 导出引擎 v4.0，CSS 变量预解析 + backdrop-filter 降级 + 渐变文字降级
+- 切片导出 + 单图导出双模式，可在预览弹窗中切换
+- 导出进度条，实时显示渲染阶段
+- 导出预览弹窗重设计（模式切换 tab、进度条、信息栏、footer 布局）
+
+### v1.9.0
+
+- UI 品质全面恢复：移除 emoji 垃圾，工具栏全部恢复 SVG 矢量图标
+- 导出弹窗重构：dialog 嵌套回 overlay，点击背景可关闭
+- 毛玻璃效果恢复：saturate(180%) blur(24px)
+- Toast 改回顶部居中毛玻璃样式
+- 编辑器 v3.0：基于 v1.7 精致水准重建
 
 ### v1.8.3
 
