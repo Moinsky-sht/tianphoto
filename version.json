@@ -1,13 +1,13 @@
 {
-  "version": "1.9.0",
+  "version": "1.9.1",
   "repo": "Moinsky-sht/tianphoto",
   "changelog": [
-    "修复：移除编辑器中所有 emoji，恢复 v1.7 精致 SVG 图标工具栏",
-    "修复：恢复 v1.7 弹窗结构（dialog 嵌套在 overlay 内，点击背景关闭）",
-    "修复：恢复 v1.7 毛玻璃工具栏（saturate+blur、iOS 安全区适配）",
-    "修复：toast 提示条回归顶部居中 + 毛玻璃背景",
-    "修复：弹窗圆角 20px、阴影加深、blur(8px) 恢复精致感",
-    "修复：切片预览改回纵向列表（而非网格），更适合长图预览",
-    "保留：v1.8 字体选择器、固定宽度 375px、自动推送、可选分辨率"
+    "重写：导出引擎 v4.0，CSS 变量预解析 + backdrop-filter 降级 + 渐变文字降级",
+    "新增：切片导出 + 单图导出双模式，可在预览弹窗中切换",
+    "新增：导出进度条，实时显示渲染阶段",
+    "优化：导出预览弹窗重设计（模式切换 tab、进度条、信息栏、footer 布局）",
+    "修复：SVG 中 var() 引用预解析为计算值，确保 html2canvas 正确渲染",
+    "修复：半透明 backdrop-filter 元素加不透明兜底背景",
+    "修复：-webkit-background-clip:text 渐变文字降级为 accent-strong 纯色"
   ]
 }
