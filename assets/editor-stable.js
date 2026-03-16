@@ -1,12 +1,14 @@
 /**
- * editor-stable.js — Tianphoto 内置编辑器 v5.1
+ * editor-stable.js — Tianphoto 内置编辑器 v5.2
  * 自包含 IIFE，零外部依赖（html2canvas 通过 window.html2canvas 引用）
  *
- * v5.1 修复：
- *  - 修复 v5.0 导出空白：移除 html2canvas 中错误的 x/y/windowWidth 参数
- *  - 简化导出流程：toolbar/overlay/toast 不在 editorEl 子树中，无需隐藏
+ * v5.2 全面修复导出 WYSIWYG：
+ *  - 强制将所有计算后的视觉样式（背景、边框、阴影、圆角、颜色）内联到元素
+ *  - 将 ::before/::after 伪元素物化为真实 DOM 元素，确保装饰效果被渲染
+ *  - 冻结 transition/animation，避免导出过程中的动画干扰
+ *  - SVG 属性 var() 预解析 + backdrop-filter 降级 + background-clip:text 降级
  *  - 先渲染再弹窗，消除 overlay display 状态冲突
- *  - 保留 v5.0 核心优势：实时 DOM 渲染 + SVG var() 预解析 + 自动恢复
+ *  - 所有临时修改通过逆序恢复栈 + try/finally 确保 DOM 完好还原
  */
 (function () {
   'use strict';
@@ -61,7 +63,7 @@
     createExportModal();
     enableEditing();
     bindEvents();
-    console.log('[Tianphoto] Editor v5.1 ready');
+    console.log('[Tianphoto] Editor v5.2 ready');
     showToast('\u7F16\u8F91\u5668\u5DF2\u5C31\u7EEA\uFF0C\u70B9\u51FB\u6587\u5B57\u5373\u53EF\u7F16\u8F91');
   }
 
@@ -338,20 +340,44 @@
   }
 
   /* ═══════════════════════════════════════════════════
-     导出引擎 v5.1 — 实时 DOM 渲染
+     导出引擎 v5.2 — 全面 WYSIWYG 修复
      ═══════════════════════════════════════════════════
 
-     v5.0 导出空白的原因：
-     html2canvas(element) 已经知道目标元素的位置和尺寸。
-     额外传入 x/y/windowWidth 会造成坐标双重偏移，
-     导致 html2canvas 截取到元素之外的空白区域。
-
-     v5.1 修正：
-     - 只传 scale 和 backgroundColor，让 html2canvas 自动处理坐标
-     - toolbar/overlay/toast 不在 editorEl 子树中，html2canvas 不会渲染它们
-     - 只在 editorEl 内部做 SVG var() 预解析和 CSS 降级
-     - 先完成渲染，再弹出预览弹窗，避免 display 状态冲突
+     v5.2 核心改进：
+     1. 强制将所有计算后的视觉样式内联到每个元素，
+        确保 html2canvas 不依赖 CSS 变量解析。
+     2. 将 ::before/::after 伪元素物化为真实 DOM 节点，
+        因为 html2canvas 对伪元素支持极差。
+     3. 冻结 transition/animation 避免导出中间态。
+     4. SVG 属性 var() 预解析（html2canvas 完全不认 SVG 属性中的 var()）。
+     5. backdrop-filter 降级 + background-clip:text 降级。
+     6. 所有修改通过逆序恢复栈 + try/finally 保护。
      ═══════════════════════════════════════════════════ */
+
+  /** 需要强制内联的视觉属性列表 */
+  var VISUAL_PROPS = [
+    'backgroundColor', 'backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat',
+    'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+    'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+    'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
+    'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+    'boxShadow', 'color', 'opacity'
+  ];
+
+  /** 伪元素需要复制的样式属性 */
+  var PSEUDO_PROPS = [
+    'position', 'top', 'right', 'bottom', 'left',
+    'display', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
+    'backgroundColor', 'backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat',
+    'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+    'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+    'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
+    'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+    'boxShadow', 'opacity', 'zIndex', 'overflow',
+    'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'boxSizing'
+  ];
 
   /**
    * 收集页面上所有 :root CSS 变量的计算值
@@ -379,14 +405,32 @@
   }
 
   /**
-   * 在 editorEl 内部做导出前的临时修改，返回 restore 函数。
-   * 注意：不修改 toolbar/overlay/toast，它们不在 editorEl 子树中。
+   * 判断元素是否在 SVG 子树中
+   */
+  function isInsideSvg(el) {
+    return el.tagName === 'svg' || el.tagName === 'SVG' ||
+           (el.closest && el.closest('svg'));
+  }
+
+  /**
+   * 导出前的全面 DOM 准备，返回 restore 函数。
+   * 核心策略：将浏览器已解析的计算样式全部内联，
+   * 让 html2canvas 无需依赖 CSS 变量解析即可正确渲染。
    */
   function prepareForExport() {
     var vars = collectCssVars();
     var restoreOps = [];
 
-    // 1) 移除 contenteditable（消除光标、选区高亮）
+    // ────── 0) 冻结 transition/animation ──────
+    var freezeStyle = document.createElement('style');
+    freezeStyle.id = 'tianphoto-export-freeze';
+    freezeStyle.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+    document.head.appendChild(freezeStyle);
+    restoreOps.push(function () {
+      if (freezeStyle.parentNode) freezeStyle.parentNode.removeChild(freezeStyle);
+    });
+
+    // ────── 1) 移除 contenteditable（消除光标、选区高亮）──────
     var editorWasEditable = editorEl.getAttribute('contenteditable');
     if (editorWasEditable) {
       editorEl.removeAttribute('contenteditable');
@@ -398,8 +442,112 @@
       restoreOps.push(function () { el.setAttribute('contenteditable', val); });
     });
 
-    // 2) 预解析 SVG 属性中的 var()
-    //    html2canvas 无法解析 SVG 属性（fill, stroke, stop-color）中的 var()
+    // ────── 2) 物化伪元素 ::before / ::after ──────
+    // html2canvas 对伪元素支持极差，将有视觉效果的伪元素转为真实 DOM 节点
+    var pseudoTargets = Array.from(editorEl.querySelectorAll('*'));
+    pseudoTargets.forEach(function (el) {
+      if (isInsideSvg(el)) return;
+      [':before', ':after'].forEach(function (pseudo) {
+        try {
+          var cs = getComputedStyle(el, pseudo);
+          var content = cs.getPropertyValue('content');
+          if (!content || content === 'none' || content === 'normal') return;
+
+          var display = cs.getPropertyValue('display');
+          if (display === 'none') return;
+
+          // 判断是否有视觉效果（背景、边框、内容文本）
+          var bgImage = cs.getPropertyValue('background-image');
+          var bgColor = cs.getPropertyValue('background-color');
+          var borderW = parseFloat(cs.getPropertyValue('border-top-width')) +
+                        parseFloat(cs.getPropertyValue('border-right-width')) +
+                        parseFloat(cs.getPropertyValue('border-bottom-width')) +
+                        parseFloat(cs.getPropertyValue('border-left-width'));
+          var hasText = content !== '""' && content !== "''";
+          var hasBg = (bgImage && bgImage !== 'none') ||
+                      (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent');
+          var hasBorder = borderW > 0;
+
+          if (!hasText && !hasBg && !hasBorder) return;
+
+          var node = document.createElement('span');
+          node.setAttribute('data-tp-pseudo', pseudo);
+          node.style.pointerEvents = 'none';
+
+          // 复制所有视觉属性的计算值
+          PSEUDO_PROPS.forEach(function (prop) {
+            try {
+              var val = cs[prop];
+              if (val !== undefined && val !== '') node.style[prop] = val;
+            } catch (e) {}
+          });
+
+          // 设置文本内容
+          if (hasText) {
+            var text = content.replace(/^["']|["']$/g, '');
+            if (text) {
+              node.textContent = text;
+              // 复制文本相关样式
+              try {
+                node.style.fontSize = cs.fontSize;
+                node.style.fontWeight = cs.fontWeight;
+                node.style.fontFamily = cs.fontFamily;
+                node.style.fontStyle = cs.fontStyle;
+                node.style.letterSpacing = cs.letterSpacing;
+                node.style.lineHeight = cs.lineHeight;
+                node.style.textAlign = cs.textAlign;
+                node.style.textTransform = cs.textTransform;
+                node.style.color = cs.color;
+              } catch (e) {}
+            }
+          }
+
+          if (pseudo === ':before') {
+            el.insertBefore(node, el.firstChild);
+          } else {
+            el.appendChild(node);
+          }
+
+          restoreOps.push(function () {
+            if (node.parentNode) node.parentNode.removeChild(node);
+          });
+        } catch (e) {}
+      });
+    });
+
+    // ────── 3) 强制内联所有计算后的视觉样式 ──────
+    // html2canvas 可能无法正确解析 CSS 自定义属性（var()），
+    // 将浏览器已计算的最终值直接写入 inline style 确保渲染正确
+    var allElements = [editorEl].concat(Array.from(editorEl.querySelectorAll('*')));
+    allElements.forEach(function (el) {
+      if (isInsideSvg(el)) return; // SVG 元素用属性不用 CSS，在步骤 4 单独处理
+      try {
+        var cs = getComputedStyle(el);
+        var saved = {};
+        var changed = false;
+        VISUAL_PROPS.forEach(function (prop) {
+          try {
+            var val = cs[prop];
+            if (val !== undefined && val !== '') {
+              saved[prop] = el.style[prop] || '';
+              el.style[prop] = val;
+              changed = true;
+            }
+          } catch (e) {}
+        });
+        if (changed) {
+          restoreOps.push(function () {
+            Object.keys(saved).forEach(function (prop) {
+              el.style[prop] = saved[prop];
+            });
+          });
+        }
+      } catch (e) {}
+    });
+
+    // ────── 4) 预解析 SVG 属性中的 var() ──────
+    // SVG fill/stroke/stop-color 等是 XML 属性而非 CSS 属性，
+    // html2canvas 完全无法解析它们中的 var() 引用
     editorEl.querySelectorAll('svg').forEach(function (svg) {
       var original = svg.innerHTML;
       var patched = original.replace(/var\(\s*(--[\w-]+)\s*\)/g, function (match, name) {
@@ -411,65 +559,57 @@
       }
     });
 
-    // 3) 解析 inline style 中的 var()
+    // ────── 5) 降级 backdrop-filter ──────
+    // html2canvas 完全不支持 backdrop-filter
     editorEl.querySelectorAll('*').forEach(function (el) {
-      if (el.style && el.style.cssText && /var\(/.test(el.style.cssText)) {
-        var origCss = el.style.cssText;
-        var patched = origCss.replace(/var\(\s*(--[\w-]+)(?:\s*,\s*([^)]+))?\s*\)/g, function (match, name, fallback) {
-          return vars[name] || (fallback ? fallback.trim() : '') || match;
-        });
-        if (patched !== origCss) {
-          el.style.cssText = patched;
-          restoreOps.push(function () { el.style.cssText = origCss; });
+      try {
+        var cs = getComputedStyle(el);
+        var bf = cs.getPropertyValue('backdrop-filter') || cs.getPropertyValue('-webkit-backdrop-filter');
+        if (bf && bf !== 'none') {
+          var origBd = el.style.backdropFilter || '';
+          var origWbd = el.style.webkitBackdropFilter || '';
+          var origBg = el.style.backgroundColor || '';
+          var bg = cs.backgroundColor;
+          if (bg && /rgba/.test(bg)) {
+            el.style.backgroundColor = bg.replace(/,\s*[\d.]+\)$/, ', 0.95)');
+          }
+          el.style.backdropFilter = 'none';
+          el.style.webkitBackdropFilter = 'none';
+          restoreOps.push(function () {
+            el.style.backdropFilter = origBd;
+            el.style.webkitBackdropFilter = origWbd;
+            el.style.backgroundColor = origBg;
+          });
         }
-      }
+      } catch (e) {}
     });
 
-    // 4) 降级 backdrop-filter
+    // ────── 6) 降级 -webkit-background-clip: text ──────
+    // html2canvas 不支持渐变文字，降级为纯色
     editorEl.querySelectorAll('*').forEach(function (el) {
-      var cs = getComputedStyle(el);
-      var bf = cs.getPropertyValue('backdrop-filter') || cs.getPropertyValue('-webkit-backdrop-filter');
-      if (bf && bf !== 'none') {
-        var origBd = el.style.backdropFilter || '';
-        var origWbd = el.style.webkitBackdropFilter || '';
-        var origBg = el.style.backgroundColor || '';
-        var bg = cs.backgroundColor;
-        if (bg && /rgba/.test(bg)) {
-          el.style.backgroundColor = bg.replace(/,\s*[\d.]+\)$/, ', 0.95)');
+      try {
+        var cs = getComputedStyle(el);
+        var bgClip = cs.getPropertyValue('-webkit-background-clip') || cs.getPropertyValue('background-clip');
+        if (bgClip === 'text') {
+          var origClip = el.style.backgroundClip || '';
+          var origWClip = el.style.webkitBackgroundClip || '';
+          var origFill = el.style.webkitTextFillColor || '';
+          var origColor = el.style.color || '';
+          var origBgImg = el.style.backgroundImage || '';
+          el.style.backgroundClip = 'border-box';
+          el.style.webkitBackgroundClip = 'border-box';
+          el.style.webkitTextFillColor = 'unset';
+          el.style.color = vars['--accent-strong'] || cs.color;
+          el.style.backgroundImage = 'none';
+          restoreOps.push(function () {
+            el.style.backgroundClip = origClip;
+            el.style.webkitBackgroundClip = origWClip;
+            el.style.webkitTextFillColor = origFill;
+            el.style.color = origColor;
+            el.style.backgroundImage = origBgImg;
+          });
         }
-        el.style.backdropFilter = 'none';
-        el.style.webkitBackdropFilter = 'none';
-        restoreOps.push(function () {
-          el.style.backdropFilter = origBd;
-          el.style.webkitBackdropFilter = origWbd;
-          el.style.backgroundColor = origBg;
-        });
-      }
-    });
-
-    // 5) 降级 -webkit-background-clip: text
-    editorEl.querySelectorAll('*').forEach(function (el) {
-      var cs = getComputedStyle(el);
-      var bgClip = cs.getPropertyValue('-webkit-background-clip') || cs.getPropertyValue('background-clip');
-      if (bgClip === 'text') {
-        var origClip = el.style.backgroundClip || '';
-        var origWClip = el.style.webkitBackgroundClip || '';
-        var origFill = el.style.webkitTextFillColor || '';
-        var origColor = el.style.color || '';
-        var origBgImg = el.style.backgroundImage || '';
-        el.style.backgroundClip = 'border-box';
-        el.style.webkitBackgroundClip = 'border-box';
-        el.style.webkitTextFillColor = 'unset';
-        el.style.color = vars['--accent-strong'] || cs.color;
-        el.style.backgroundImage = 'none';
-        restoreOps.push(function () {
-          el.style.backgroundClip = origClip;
-          el.style.webkitBackgroundClip = origWClip;
-          el.style.webkitTextFillColor = origFill;
-          el.style.color = origColor;
-          el.style.backgroundImage = origBgImg;
-        });
-      }
+      } catch (e) {}
     });
 
     return {
@@ -484,21 +624,21 @@
   /**
    * 核心渲染：在实时 DOM 上渲染 editorEl 为 canvas。
    *
-   * 关键：只传 scale 和 backgroundColor，不传 x/y/width/height/windowWidth。
-   * html2canvas 会自动从 editorEl 的 getBoundingClientRect() 计算渲染区域。
-   * 手动传入这些参数会导致坐标双重偏移 → 空白输出。
+   * 关键：只传 scale、backgroundColor、scrollY，不传 x/y/width/height/windowWidth。
+   * html2canvas 自动从 editorEl 的 getBoundingClientRect() 计算渲染区域。
    */
   async function renderToCanvas() {
     // 等待布局稳定
     await new Promise(function (r) { requestAnimationFrame(r); });
-    await new Promise(function (r) { setTimeout(r, 200); });
+    await new Promise(function (r) { setTimeout(r, 300); });
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
     // 滚动到顶部，确保 html2canvas 能看到完整内容
     var prevScroll = window.scrollY;
     window.scrollTo(0, 0);
-    // 再等一帧让滚动生效
+    // 再等一帧让滚动和内联样式生效
     await new Promise(function (r) { requestAnimationFrame(r); });
+    await new Promise(function (r) { setTimeout(r, 100); });
 
     var pageBg = getComputedStyle(document.body).backgroundColor;
 
@@ -506,7 +646,9 @@
       backgroundColor: (pageBg && pageBg !== 'rgba(0, 0, 0, 0)') ? pageBg : '#ffffff',
       scale: EXPORT_SCALE,
       useCORS: true,
-      logging: false
+      logging: false,
+      scrollY: 0,
+      scrollX: 0
     });
 
     window.scrollTo(0, prevScroll);

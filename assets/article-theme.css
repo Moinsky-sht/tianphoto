@@ -1696,10 +1696,37 @@
 .export-gallery {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 18px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.export-gallery::-webkit-scrollbar {
+  width: 6px;
+}
+
+.export-gallery::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.export-gallery::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 3px;
+}
+
+.export-gallery::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  .export-gallery::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .export-gallery::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
 }
 
 .export-slice-card {
@@ -2141,11 +2168,38 @@
 .export-gallery {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 18px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-height: 120px;
+}
+
+.export-gallery::-webkit-scrollbar {
+  width: 6px;
+}
+
+.export-gallery::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.export-gallery::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 3px;
+}
+
+.export-gallery::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  .export-gallery::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .export-gallery::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
 }
 
 .export-slice-card {
