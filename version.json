@@ -1,14 +1,11 @@
 {
-  "version": "1.9.2",
+  "version": "1.9.3",
   "repo": "Moinsky-sht/tianphoto",
   "changelog": [
-    "重写：导出引擎 v5.0，彻底告别离屏克隆方案，直接在实时 DOM 上渲染",
-    "修复：94 个 CSS var() 引用在导出时全部正确解析（浏览器原生 cascade）",
-    "修复：样式表中的背景、边框、阴影、圆角等 var() 属性不再丢失",
-    "修复：伪元素（::before/::after）中的 var() 装饰效果完整保留",
-    "修复：SVG 属性 var() 渲染前预解析，渲染后自动恢复",
-    "优化：backdrop-filter / background-clip:text 临时降级，渲染后自动恢复",
-    "优化：导出前自动隐藏编辑器 UI，避免遮挡渲染",
-    "优化：渲染失败时确保 DOM 完好恢复（try/finally 保护）"
+    "修复：v5.0 导出空白 — 移除 html2canvas 中错误的 x/y/windowWidth 参数，消除坐标双重偏移",
+    "修复：导出弹窗与渲染流程的 display 状态冲突 — 先渲染再弹窗",
+    "简化：toolbar/overlay/toast 不在 editorEl 子树中，prepareForExport 无需隐藏它们",
+    "保留：实时 DOM 渲染 + SVG var() 预解析 + backdrop-filter 降级 + 自动恢复",
+    "稳定：导出引擎升级至 v5.1，全面优化后的稳定版本"
   ]
 }

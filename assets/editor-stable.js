@@ -1,14 +1,12 @@
 /**
- * editor-stable.js — Tianphoto 内置编辑器 v5.0
+ * editor-stable.js — Tianphoto 内置编辑器 v5.1
  * 自包含 IIFE，零外部依赖（html2canvas 通过 window.html2canvas 引用）
  *
- * v5.0 重点改进：
- *  - 导出引擎彻底重写：直接在实时 DOM 上渲染，CSS 变量由浏览器原生 cascade 解析
- *  - 告别离屏克隆方案，94 个 var() 引用全部正确渲染
- *  - SVG 属性 var() 渲染前预解析，渲染后自动恢复
- *  - backdrop-filter / background-clip:text 临时降级，渲染后自动恢复
- *  - 支持切片导出 + 单图导出双模式
- *  - 预览弹窗：模式切换、进度条、缩略图、逐张/全部下载
+ * v5.1 修复：
+ *  - 修复 v5.0 导出空白：移除 html2canvas 中错误的 x/y/windowWidth 参数
+ *  - 简化导出流程：toolbar/overlay/toast 不在 editorEl 子树中，无需隐藏
+ *  - 先渲染再弹窗，消除 overlay display 状态冲突
+ *  - 保留 v5.0 核心优势：实时 DOM 渲染 + SVG var() 预解析 + 自动恢复
  */
 (function () {
   'use strict';
@@ -63,7 +61,7 @@
     createExportModal();
     enableEditing();
     bindEvents();
-    console.log('[Tianphoto] Editor v5.0 ready');
+    console.log('[Tianphoto] Editor v5.1 ready');
     showToast('\u7F16\u8F91\u5668\u5DF2\u5C31\u7EEA\uFF0C\u70B9\u51FB\u6587\u5B57\u5373\u53EF\u7F16\u8F91');
   }
 
@@ -340,24 +338,19 @@
   }
 
   /* ═══════════════════════════════════════════════════
-     导出引擎 v5.0 — 实时 DOM 渲染，真正所见即所得
+     导出引擎 v5.1 — 实时 DOM 渲染
      ═══════════════════════════════════════════════════
 
-     核心原理：
-     v4.0 的离屏克隆方案有根本缺陷——样式表中 94 个 var() 引用
-     在克隆到离屏 DOM 后无法被 html2canvas 正确解析。
+     v5.0 导出空白的原因：
+     html2canvas(element) 已经知道目标元素的位置和尺寸。
+     额外传入 x/y/windowWidth 会造成坐标双重偏移，
+     导致 html2canvas 截取到元素之外的空白区域。
 
-     v5.0 直接在实时 DOM 上渲染。浏览器的 CSS cascade 已经
-     将所有 var() 解析为计算值，html2canvas 通过 getComputedStyle
-     读取到的就是最终渲染值。
-
-     渲染流程：
-     1. 隐藏编辑器 UI（toolbar、overlay、toast）
-     2. 移除 contenteditable 属性
-     3. 预解析 SVG 属性中的 var()（html2canvas 不支持 SVG CSS vars）
-     4. 临时降级 backdrop-filter 和 background-clip:text
-     5. 在实时 DOM 上调用 html2canvas
-     6. 渲染完成后恢复所有临时修改
+     v5.1 修正：
+     - 只传 scale 和 backgroundColor，让 html2canvas 自动处理坐标
+     - toolbar/overlay/toast 不在 editorEl 子树中，html2canvas 不会渲染它们
+     - 只在 editorEl 内部做 SVG var() 预解析和 CSS 降级
+     - 先完成渲染，再弹出预览弹窗，避免 display 状态冲突
      ═══════════════════════════════════════════════════ */
 
   /**
@@ -386,37 +379,27 @@
   }
 
   /**
-   * 在实时 DOM 上做导出前的临时修改，返回 restore 函数用于恢复。
-   * 所有修改都是可逆的，确保渲染后 DOM 完好无损。
+   * 在 editorEl 内部做导出前的临时修改，返回 restore 函数。
+   * 注意：不修改 toolbar/overlay/toast，它们不在 editorEl 子树中。
    */
   function prepareForExport() {
     var vars = collectCssVars();
     var restoreOps = [];
 
-    // 1) 隐藏编辑器 UI
-    var uiElements = document.querySelectorAll('.editor-toolbar, .export-overlay, .editor-toast');
-    uiElements.forEach(function (el) {
-      var prev = el.style.display;
-      el.style.display = 'none';
-      restoreOps.push(function () { el.style.display = prev; });
-    });
-
-    // 2) 移除 contenteditable（影响渲染样式：光标、选区高亮等）
-    var editableEls = editorEl.querySelectorAll('[contenteditable]');
+    // 1) 移除 contenteditable（消除光标、选区高亮）
     var editorWasEditable = editorEl.getAttribute('contenteditable');
     if (editorWasEditable) {
       editorEl.removeAttribute('contenteditable');
       restoreOps.push(function () { editorEl.setAttribute('contenteditable', editorWasEditable); });
     }
-    editableEls.forEach(function (el) {
+    editorEl.querySelectorAll('[contenteditable]').forEach(function (el) {
       var val = el.getAttribute('contenteditable');
       el.removeAttribute('contenteditable');
       restoreOps.push(function () { el.setAttribute('contenteditable', val); });
     });
 
-    // 3) 预解析 SVG 属性中的 var()
-    //    html2canvas 无法解析 SVG 属性（fill, stroke, stop-color 等）中的 var() 引用
-    //    即使在实时 DOM 上也是如此，因为这些是 SVG 属性而非 CSS 属性
+    // 2) 预解析 SVG 属性中的 var()
+    //    html2canvas 无法解析 SVG 属性（fill, stroke, stop-color）中的 var()
     editorEl.querySelectorAll('svg').forEach(function (svg) {
       var original = svg.innerHTML;
       var patched = original.replace(/var\(\s*(--[\w-]+)\s*\)/g, function (match, name) {
@@ -428,8 +411,7 @@
       }
     });
 
-    // 4) 处理 inline style 中的 var()
-    //    html2canvas 对 inline style 中的 var() 支持不完整
+    // 3) 解析 inline style 中的 var()
     editorEl.querySelectorAll('*').forEach(function (el) {
       if (el.style && el.style.cssText && /var\(/.test(el.style.cssText)) {
         var origCss = el.style.cssText;
@@ -443,8 +425,7 @@
       }
     });
 
-    // 5) 降级 backdrop-filter（html2canvas 不支持）
-    //    给半透明背景的元素加不透明兜底
+    // 4) 降级 backdrop-filter
     editorEl.querySelectorAll('*').forEach(function (el) {
       var cs = getComputedStyle(el);
       var bf = cs.getPropertyValue('backdrop-filter') || cs.getPropertyValue('-webkit-backdrop-filter');
@@ -466,8 +447,7 @@
       }
     });
 
-    // 6) 降级 -webkit-background-clip: text（html2canvas 不支持）
-    //    将渐变文字降级为 accent-strong 纯色
+    // 5) 降级 -webkit-background-clip: text
     editorEl.querySelectorAll('*').forEach(function (el) {
       var cs = getComputedStyle(el);
       var bgClip = cs.getPropertyValue('-webkit-background-clip') || cs.getPropertyValue('background-clip');
@@ -493,9 +473,7 @@
     });
 
     return {
-      vars: vars,
       restore: function () {
-        // 按逆序恢复，确保嵌套修改正确还原
         for (var i = restoreOps.length - 1; i >= 0; i--) {
           try { restoreOps[i](); } catch (e) { console.warn('[Tianphoto] Restore error:', e); }
         }
@@ -504,35 +482,31 @@
   }
 
   /**
-   * 核心渲染：在实时 DOM 上渲染为 canvas
+   * 核心渲染：在实时 DOM 上渲染 editorEl 为 canvas。
+   *
+   * 关键：只传 scale 和 backgroundColor，不传 x/y/width/height/windowWidth。
+   * html2canvas 会自动从 editorEl 的 getBoundingClientRect() 计算渲染区域。
+   * 手动传入这些参数会导致坐标双重偏移 → 空白输出。
    */
   async function renderToCanvas() {
-    // 等待渲染稳定
+    // 等待布局稳定
     await new Promise(function (r) { requestAnimationFrame(r); });
     await new Promise(function (r) { setTimeout(r, 200); });
-    // 等字体加载完成
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
-    // 滚动到顶部确保完整渲染
+    // 滚动到顶部，确保 html2canvas 能看到完整内容
     var prevScroll = window.scrollY;
     window.scrollTo(0, 0);
+    // 再等一帧让滚动生效
+    await new Promise(function (r) { requestAnimationFrame(r); });
+
+    var pageBg = getComputedStyle(document.body).backgroundColor;
 
     var canvas = await window.html2canvas(editorEl, {
-      backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff',
-      width: MOBILE_WIDTH,
-      height: editorEl.scrollHeight,
+      backgroundColor: (pageBg && pageBg !== 'rgba(0, 0, 0, 0)') ? pageBg : '#ffffff',
       scale: EXPORT_SCALE,
       useCORS: true,
-      logging: false,
-      windowWidth: MOBILE_WIDTH,
-      x: editorEl.getBoundingClientRect().left + window.scrollX,
-      y: editorEl.getBoundingClientRect().top + window.scrollY,
-      ignoreElements: function (el) {
-        if (!el.classList) return false;
-        return el.classList.contains('editor-toolbar') ||
-               el.classList.contains('export-overlay') ||
-               el.classList.contains('editor-toast');
-      }
+      logging: false
     });
 
     window.scrollTo(0, prevScroll);
@@ -540,10 +514,10 @@
   }
 
   /**
-   * 将 canvas 按智能边界切片
+   * 将 canvas 按固定高度切片
    */
   function sliceCanvas(canvas) {
-    var MAX_SLICE_PX = 5000; // canvas 像素（对应 ~1740 逻辑像素）
+    var MAX_SLICE_PX = 5000;
     var totalH = canvas.height;
     var w = canvas.width;
 
@@ -580,31 +554,21 @@
     if (isExporting) return;
     isExporting = true;
 
-    showExportModal();
-    setProgress(10, '\u6B63\u5728\u51C6\u5907\u5BFC\u51FA...');
-    dialog.querySelector('.export-gallery').innerHTML = '';
-    dialog.querySelector('.export-info').textContent = '';
+    // 不要在渲染前打开弹窗！先渲染，再展示结果。
+    // v5.0 的 bug 之一就是弹窗的 display 状态和 prepareForExport 冲突。
+    showToast('\u6B63\u5728\u5BFC\u51FA...');
 
     var exportPrep = null;
     try {
       if (typeof window.html2canvas !== 'function') throw new Error('html2canvas \u672A\u52A0\u8F7D');
 
-      setProgress(20, '\u6B63\u5728\u9884\u5904\u7406 DOM...');
-      // 在实时 DOM 上做临时修改（SVG var 解析、backdrop-filter 降级等）
+      // 在 editorEl 上做临时修改
       exportPrep = prepareForExport();
 
-      // 隐藏弹窗本身以免遮挡渲染
-      overlay.style.display = 'none';
-
-      setProgress(40, '\u6B63\u5728\u6E32\u67D3\u56FE\u7247...');
+      // 渲染
       var canvas = await renderToCanvas();
 
-      // 恢复弹窗显示
-      overlay.style.display = '';
-
-      setProgress(70, '\u6B63\u5728\u5207\u7247...');
-
-      // 恢复所有临时修改
+      // 渲染完成，恢复 DOM
       exportPrep.restore();
       exportPrep = null;
 
@@ -622,21 +586,15 @@
         filename: (document.title || 'article').replace(/[^\w\u4e00-\u9fff-]/g, '_') + '.png'
       };
 
-      setProgress(100, '\u5BFC\u51FA\u5B8C\u6210');
-      setTimeout(function () { hideProgress(); }, 600);
-
+      // 渲染成功，弹出预览弹窗
+      showExportModal();
       renderGallery();
       showToast('\u5BFC\u51FA\u5B8C\u6210');
 
     } catch (err) {
-      console.error('Export error:', err);
-      // 确保恢复弹窗显示
-      if (overlay) overlay.style.display = '';
-      hideProgress();
-      hideExportModal();
+      console.error('[Tianphoto] Export error:', err);
       showToast('\u5BFC\u51FA\u5931\u8D25\uFF1A' + (err.message || err), 4000);
     } finally {
-      // 确保即使出错也能恢复 DOM
       if (exportPrep) {
         try { exportPrep.restore(); } catch (e) { console.warn('[Tianphoto] Final restore error:', e); }
       }
@@ -653,7 +611,6 @@
     gallery.innerHTML = '';
 
     if (currentExportMode === 'full' && exportFullImage) {
-      // 单图模式
       var card = document.createElement('div');
       card.className = 'export-slice-card';
       card.innerHTML =
@@ -664,7 +621,6 @@
       info.textContent = '\u5355\u5F20\u5B8C\u6574\u56FE\u7247 \u00B7 ' + exportFullImage.width + 'x' + exportFullImage.height + 'px';
       dlBtn.textContent = '\u4E0B\u8F7D\u56FE\u7247';
     } else if (exportSlices.length > 0) {
-      // 切片模式
       exportSlices.forEach(function (slice) {
         var card = document.createElement('div');
         card.className = 'export-slice-card';

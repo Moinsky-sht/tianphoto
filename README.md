@@ -2,7 +2,7 @@
 
 将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
 
-当前版本：**v1.9.2**
+当前版本：**v1.9.3**
 
 ## 30 秒快速开始
 
@@ -141,7 +141,7 @@ tianphoto/
 ├── assets/
 │   ├── article-theme.css   # 文章主题样式
 │   ├── free-base.css       # 自由模式轻底盘
-│   ├── editor-stable.js    # 稳定版编辑器 v5.0（实时 DOM 渲染）
+│   ├── editor-stable.js    # 稳定版编辑器 v5.1（实时 DOM 渲染，修复空白导出）
 │   ├── html2canvas.min.js  # 渲染依赖
 │   └── presets.json        # 36 套预设配置
 ├── scripts/
@@ -186,6 +186,13 @@ git status --short
 ```
 
 ## 更新日志
+
+### v1.9.3
+
+- **修复导出空白**：v5.0 导出引擎传入了错误的 x/y/windowWidth 参数导致 html2canvas 坐标双重偏移，v5.1 移除这些参数，让 html2canvas 自动处理元素定位
+- **修复弹窗冲突**：导出流程改为先渲染再弹窗，消除 overlay display 状态与渲染的冲突
+- **简化导出准备**：toolbar/overlay/toast 不在 editorEl 子树中，html2canvas 不会渲染它们，无需在 prepareForExport 中隐藏
+- **导出引擎 v5.1**：在 v5.0 实时 DOM 渲染基础上的稳定修正版，保留 SVG var() 预解析 + CSS 降级 + 自动恢复
 
 ### v1.9.2
 
