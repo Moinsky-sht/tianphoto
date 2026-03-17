@@ -7,6 +7,28 @@ Tianphoto 的版本更新记录。
 - 这里保留完整的版本历史摘要
 - 更详细的发布说明收纳在 [releases](releases)
 
+## v2.1.1
+
+- 阅读型章节头重新收成两层：上层只放 `wx-section-index / wx-card-caption / wx-section-mark`，下层让 `h2` 单独占满主要宽度
+- `wx-section-mark` 在阅读型模板里退成更轻的语义角标，不再做成白底按钮感徽记
+- 并列 `wx-metric-card / wx-compare-card` 默认进一步压小标题字号，避免小卡片被大标题撑坏
+- 编辑器新增分类组件面板，并补上稳定的撤销 / 重做历史栈
+- `/tp doctor` 新增章节元信息顺序检查，以及并列卡片标题是否过长的审美风险提示
+
+详细说明：
+[v2.1.1 release notes](releases/v2.1.1.md)
+
+## v2.1.0
+
+- 新增内容模板层，页面不再只靠 preset / family 决定，而会额外落到 `event-notice / weekly-report / release-brief / knowledge-article / case-recap`
+- `/tp doctor` 升级为设计审校器，可检查 OpenClaw/飞书插件能力、章节图形数量、模板匹配度、组件密度和阅读型风险
+- 编辑器加入 `章节 / 引语 / 指标 / 对比 / 时间线` 五类快捷组件入口，适合直接搭页面结构
+- 会话回传链路新增明确状态结果，能区分“已回传到当前会话”和“仅保存在本地”
+- 阅读型页面进一步收紧 `wx-image-drop-zone` 和冗长 metric card 的使用边界
+
+详细说明：
+[v2.1.0 release notes](releases/v2.1.0.md)
+
 ## v2.0.0
 
 - 章节标题系统重做，标题重新拿回主要宽度

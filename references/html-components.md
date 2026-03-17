@@ -7,7 +7,7 @@
 ## 根结构
 
 ```html
-<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}">
+<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}" data-heading-system="{heading-system}">
   <div class="wx-article-shell">
     <!-- 组件在此处排列 -->
   </div>
@@ -65,14 +65,16 @@
 ```html
 <div class="wx-section-card">
   <div class="wx-section-top">
-    <div class="wx-section-icon">
-      <!-- SVG 图标（见下方 SVG 库） -->
-    </div>
     <div class="wx-section-heading">
-      <span class="wx-section-index">PART 01</span>
+      <span class="wx-section-index">01</span>
       <div>
         <div class="wx-card-caption">栏目标签</div>
-        <h2>章节标题</h2>
+        <div class="wx-title-row">
+          <h2>章节标题</h2>
+          <span class="wx-section-mark" aria-hidden="true">
+            <!-- 单个语义徽记 SVG -->
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -86,26 +88,40 @@
 
 ### 章节标题系统
 
-同一篇页面必须选择一种主 `heading system`，不要在不同带 `wx-section-top` 的章节之间混用。
+同一篇页面必须选择一种主 `heading system`，不要在不同带 `wx-section-top` 的章节之间混用。默认方向是“文本优先、图形辅助”，不是“用挂件挤压标题”。
 
 | System | 结构重点 | 适合家族 |
 | --- | --- | --- |
-| `icon-led` | 强调 `wx-section-icon`，隐藏或弱化 `wx-section-index` | `field-atlas`, `aurora-drift`, `play-lab` |
-| `index-led` | 强调 `wx-section-index`，图标退场 | `swiss-journal`, `ledger-spec`, `brief-bulletin`, `poster-brutal` |
-| `dual` | 同时保留图标与编号，像 dashboard / signal panel | `ops-console`, `neon-signal` |
-| `plaque` | 强调 `wx-card-caption + h2` 的牌匾感，弱化 icon/index | `archive-paper`, `salon-luxe`, `night-gallery`, `studio-ribbon`, `deck-story` |
+| `icon-led` | 少数图形主导页面使用 `wx-section-icon`，编号可弱化 | `field-atlas`, `aurora-drift`, `play-lab` |
+| `index-led` | 阅读型默认方案，强调 `wx-section-index + h2 + wx-section-mark` | `swiss-journal`, `ledger-spec`, `brief-bulletin`, `poster-brutal`, `skyline-pane` |
+| `dual` | 仅给 dashboard / signal panel 家族保留 icon + index 双轨 | `ops-console`, `neon-signal` |
+| `plaque` | 牌匾感标题区，仍然只允许 1 个 `wx-section-mark` | `archive-paper`, `salon-luxe`, `night-gallery`, `studio-ribbon`, `deck-story` |
 
 默认做法：
 
-- `rule` 模式建议同时输出 `wx-section-icon + wx-section-index + wx-card-caption + h2`
-- 再由 `<article data-heading-system="...">` 决定显隐和层级
-- 如果你决定手动精简，整页必须仍然保持同一种 heading system
+- 阅读型页面默认使用 `index-led`，结构为 `wx-section-index + wx-card-caption + h2 + wx-section-mark`
+- `wx-section-mark` 是唯一正式的章节语义图形接口，固定放在标题块右上或右侧收边位
+- `event-notice` / `notice` / 活动招募页默认使用 `data-page-tone="event-notice"` + `data-heading-system="index-led"`
+- 只有 `icon-led` / `dual` 才需要显式输出 `wx-section-icon`
 
 禁止做法：
 
 - 第一段用 icon，第二段突然只剩编号
 - 使用无语义的占位图标，例如通用加号、无含义十字、调试图标
-- 同一页把 section icon 做成完全一样的占位形状，只靠换颜色区分
+- 标题左右各挂一个 SVG，或者在标题下再补一条无解释轨道线
+- 同一页把不同章节做成同一个空洞图形，只换颜色假装区分
+
+正式标题语义徽记：
+
+```html
+<span class="wx-section-mark" aria-hidden="true">
+  <svg viewBox="0 0 24 24" fill="none">
+    <!-- 与章节语义直接对应的报名卡 / 奖杯 / 时钟 / 勾选 / 代码 / 机构关系等 -->
+  </svg>
+</span>
+```
+
+它必须承担语义职责，只能帮助识别章节内容，不能变成一块独立装饰。
 
 ### 4. wx-metric-grid（数据指标）
 
@@ -182,12 +198,18 @@
 
 资讯简报、早报、新闻汇总这类页面通常不需要它，优先靠留白和标题层级完成转场。
 
-### 10. wx-inline-graphic / wx-badge-art（图形/印章）
+### 10. wx-inline-graphic / wx-badge-art（仅在确有信息职责时使用）
 
 ```html
-<div class="wx-inline-graphic"><!-- 数据/装饰 SVG --></div>
-<div class="wx-badge-art"><!-- 印章 SVG --></div>
+<div class="wx-inline-graphic"><!-- 信息图 / 流程图 / 时间结构图 SVG --></div>
+<div class="wx-badge-art"><!-- 仅少数表达型页面可用的语义徽章 SVG --></div>
 ```
+
+使用边界：
+
+- 不要把它们当作“让页面看起来更丰富”的默认装饰块。
+- `event-notice`、阅读型和公告型页面默认不使用它们，优先靠标题层级、卡片节奏和原生图片完成表达。
+- 如果 SVG 不能帮助读者理解结构关系，就不要放。
 
 ### 11. phone-brand-banner（品牌横幅）
 
@@ -218,6 +240,11 @@
   点击或拖拽图片到此处
 </div>
 ```
+
+优先原则：
+
+- 如果你已经有实际图片，请直接使用原生 `<img>` 插入到正文中，主题会自动美化。
+- 只有在明确需要给用户预留“后续再补图”的坑位时，才使用 `wx-image-drop-zone`。
 
 ---
 
@@ -263,7 +290,7 @@
 ```
 适用：科技、数据、系统、健康
 
-### 数据图形（用于 wx-inline-graphic）
+### 结构信息图（用于 wx-inline-graphic）
 
 #### chart-arc · 弧线增长
 ```svg
@@ -290,7 +317,15 @@
 <svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M15 16v32" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="15" cy="18" r="5" fill="currentColor"/><circle cx="15" cy="32" r="5" fill="currentColor" opacity=".6"/><circle cx="15" cy="46" r="5" fill="currentColor" opacity=".3"/><path d="M28 18h21M28 32h16M28 46h24" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>
 ```
 
-### 装饰图形（用于 wx-inline-graphic）
+### 已弃用的纯装饰图形
+
+以下方向不再作为默认推荐：
+
+- 没有信息职责的全宽波纹 / 星群 / 折带 / 光片
+- 只为“看起来高级”而存在的大块玻璃 SVG
+- 和章节内容没有直接关系的抽象挂件
+
+如果你确实需要一张大图，优先把它做成真正的信息图，而不是装饰板。
 
 #### mesh-wave · 流动曲面
 ```svg
@@ -375,6 +410,6 @@
 3. **列表优于长段**：要点用 ul/li 比 p 更易读
 4. **适度使用分隔线**：一篇文章 0-2 个 divider 即可；资讯页默认尽量不用
 5. **图标选择**：根据章节内容从内置 SVG 库中选最合适的，或自行设计 SVG（使用 `currentColor`）
-6. **图片占位**：用 `wx-image-drop-zone` 标记用户可后续插图的位置
+6. **图片策略**：已有真实图片时优先直接插入原生 `<img>`；只有明确需要后补图片时才使用 `wx-image-drop-zone`
 7. **禁止 Emoji**：不要在任何地方使用 Emoji 字符（🚀✨💡📊❌✅ 等），所有图标必须用 SVG
-8. **每个带 `wx-section-top` 的 section-card 必须遵守统一的章节标题系统**：优先同时提供 `wx-section-icon` + `wx-section-index` + `wx-card-caption` + `h2`，再由 `data-heading-system` 决定主次；像 summary / quote 这类信息卡不必强行补章节图标，但禁止使用无语义的占位 SVG
+8. **每个带 `wx-section-top` 的 section-card 必须遵守统一的章节标题系统**：阅读型页面默认使用 `wx-section-index + wx-card-caption + h2 + wx-section-mark`；只有 `icon-led` / `dual` 才需要显式输出 `wx-section-icon`；像 summary / quote 这类信息卡不必强行补章节头，但禁止使用无语义的占位 SVG

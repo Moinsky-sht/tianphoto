@@ -2,16 +2,20 @@
 name: tianphoto
 description: |
   文章转手机长图工具。当用户需要：
+  - 在安装飞书官方 `feishu-openclaw-plugin` 的 OpenClaw 里，直接读取飞书在线文档并一句话做成长图 HTML
   - 把文章做成手机长图 / 公众号图文 / 手机海报
   - 生成网页图文 / 文章转图片 / 文章排版
   - 制作小红书图文 / 微博长图 / 可编辑的图文页面
+  - 在 OpenClaw、Claude Code、Codex、Trae 等 AI IDE / agent 环境中生成图文页面
   - 使用 /tp 指令或提到 tianphoto
-  关键词：图文生成、长图、公众号、排版、海报、/tp、tianphoto
+  关键词：图文生成、长图、公众号、排版、海报、OpenClaw、飞书、/tp、tianphoto
   输入：文章文字或 URL
   输出：可编辑的 HTML 网页 + 可选 PNG 切片
 user_invocable: true
 keywords:
   - tianphoto
+  - openclaw
+  - 飞书
   - 图文生成
   - 文章转长图
   - 公众号图文
@@ -19,9 +23,9 @@ keywords:
   - /tp
 ---
 
-# Tianphoto — 智能图文生成工作室
+# Tianphoto — OpenClaw 优先的智能图文生成工作室
 
-将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。
+将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。它不只适用于 Claude Code、Codex、Trae 等 AI IDE / agent 环境，也特别适配小龙虾 OpenClaw；当 OpenClaw 安装了飞书官方 `feishu-openclaw-plugin` 之后，Tianphoto 可以更自然地承接飞书在线文档、通知和周报内容，并一句话生成长图 HTML 再回传到当前会话。
 
 ## 核心理念
 
@@ -32,11 +36,13 @@ keywords:
 - 点击底部"保存"按钮（或 Cmd+S）保存修改后的网页
 - 点击"导出"按钮生成 PNG 切片
 
+**宿主适配上，Tianphoto 是通用的，但不是平均分配的。** 它可以运行在多种 AI IDE / agent 环境中；不过如果你在 OpenClaw 里使用，尤其是已经安装飞书官方 `feishu-openclaw-plugin` 时，它的优势会更明显: 可以读取飞书在线文档等内容源，也可以直接用一句话把飞书里的材料做成长图 HTML，并把结果继续带回当前会话传播、修改和复用。
+
 ## 30 秒快速开始
 
 约定：下文中的 `$SKILL_DIR` 表示**当前正在使用的 `tianphoto` 技能根目录**。不要把路径硬编码成 `~/.claude` 或其他固定目录，始终以当前加载的 skill 目录为准。
 
-1. 用户直接给文章文字或 URL 时，先判断内容模式，再判断 UI 模式，再选预设，最后生成 `<article>` 片段。
+1. 用户直接给文章文字或 URL 时，先判断内容模式，再判断 UI 模式，再识别内容模板，再选风格家族和预设，最后生成 `<article>` 片段。
 2. 把片段保存为临时 HTML 后，调用 `node $SKILL_DIR/scripts/render-image.js ...` 输出桌面网页。
 3. 如果用户要品牌横幅，把 logo 放到 `$SKILL_DIR/logos/brand-logo.png`，再用 `/tp logo title 名字` 和 `/tp logo subtitle 副标题` 写入本地配置。
 4. 如果用户输入 `/tp ui rule`、`/tp ui free 2` 或 `/tp doctor`，优先处理这些快速指令，不要开始生成。
@@ -62,11 +68,15 @@ keywords:
 - `/tp ui free 4`
 
 ### `/tp doctor`
-快速检查当前 skill 状态：版本、UI 模式、logo 配置、Chrome 可用性、预设数量等。
+快速检查当前 skill 状态：版本、UI 模式、logo 配置、Chrome 可用性、预设数量、OpenClaw 能力和页面设计质量。
 如果附带本地 HTML 文件路径，还会检查：
 - 是否用了 `tp-free-*` helper
 - 是否存在明显的硬编码主题色
 - 是否有危险的 3 列以上网格
+- 当前页面属于哪个 `content-template`
+- 章节图形是否超量、编号是否断档
+- 阅读型页面是否误用了 `wx-image-drop-zone`
+- metric card 是否过长，不适合移动端扫描
 
 ### `/tp logo on`
 启用 Logo 功能。提示用户将 Logo 图片放到以下位置：
@@ -248,13 +258,13 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - **默认采用 helpers-first 起手**：优先使用 `tp-free-*` 基础组件搭骨架，再用自定义 class 做增强
 - **默认采用 variables-first 配色**：优先使用 preset CSS 变量，不要大量硬编码主题色
 
-### Step 2: 识别内容主题 → 选风格家族 → 选预设
+### Step 2: 识别内容模板 → 选风格家族 → 选预设
 
-先参考 `references/content-types.md` 判断内容类型，再参考 `references/style-families.md` 先选 `family`，最后才落到具体 `preset`。如果用户用 `/tp style` 指定了预设则直接使用，但仍然要识别它属于哪个 family，并按该 family 的版式人格执行。
+先参考 `references/content-types.md` 判断内容属于哪个 `content-template`，再参考 `references/style-families.md` 先选 `family`，最后才落到具体 `preset`。如果用户用 `/tp style` 指定了预设则直接使用，但仍然要识别它属于哪个 family，并按该 family 的版式人格执行。
 
 选择顺序必须是：
 
-1. 这篇内容属于什么主题 / 阅读气质
+1. 这篇内容属于什么内容模板 / 主题 / 阅读气质
 2. 最适合哪个 `style family`
 3. 该 family 里哪一个 `preset` 最合适
 4. 最后补一句视觉执行方向
@@ -363,6 +373,8 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 | `wx-section-icon` | 章节图标容器 | ✓ |
 | `wx-section-heading` | 章节标题区 | ✓ |
 | `wx-section-index` | 章节编号 | ✓ |
+| `wx-title-row` | 章节标题主行 | ✓ |
+| `wx-section-mark` | 章节语义徽记 | ✓ |
 | `wx-section-body` | 章节正文区 | ✓ |
 | `wx-card-caption` | 卡片标题标签 | ✓ |
 | `wx-metric-grid` | 指标网格容器 | ✓ |
@@ -416,15 +428,16 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 ```html
 <div class="wx-section-card">
   <div class="wx-section-top">
-    <div class="wx-section-icon">
-      <!-- 从内置 SVG 库选择或自行设计 64x64 SVG，必须有 -->
-      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">...</svg>
-    </div>
     <div class="wx-section-heading">
-      <span class="wx-section-index">PART 01</span>
+      <span class="wx-section-index">01</span>
       <div>
         <div class="wx-card-caption">栏目标签</div>
-        <h2 style="font-size:22px;color:var(--accent-strong);font-weight:800;">章节标题</h2>
+        <div class="wx-title-row">
+          <h2 style="font-size:22px;color:var(--accent-strong);font-weight:800;">章节标题</h2>
+          <span class="wx-section-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">...</svg>
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -443,28 +456,32 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 - `icon-led`
   适合 `field-atlas / aurora-drift / play-lab`
-  强调 `wx-section-icon`，编号退场或隐藏
+  仅少数图形主导页面使用 `wx-section-icon`，编号可弱化
 - `index-led`
-  适合 `swiss-journal / ledger-spec / brief-bulletin / poster-brutal`
-  强调 `wx-section-index`，图标退场
+  适合 `swiss-journal / ledger-spec / brief-bulletin / poster-brutal / skyline-pane`
+  阅读型默认方案，强调 `wx-section-index + h2 + wx-section-mark`
 - `dual`
   适合 `ops-console / neon-signal`
-  图标与编号并存，像面板或信号系统
+  图标与编号并存，像面板或信号系统；仅保留给产品 / dashboard 家族
 - `plaque`
   适合 `archive-paper / salon-luxe / night-gallery / studio-ribbon / deck-story`
-  强调 `wx-card-caption + h2` 的牌匾感，图标和编号弱化
+  强调 `wx-card-caption + h2` 的牌匾感，图标和编号弱化，但仍只允许 1 个 `wx-section-mark`
 
 推荐做法：
 
-- `rule` 模式优先同时输出 `wx-section-icon + wx-section-index + wx-card-caption + h2`
-- 再让根节点的 `data-heading-system` 决定它们的主次和显隐
-- 如果确实要删减，只能整页一起删，不能一个 section 有 icon、另一个 section 只剩编号
+- 阅读型页面默认使用 `wx-section-index + wx-card-caption + h2 + wx-section-mark`
+- 阅读型页面里，`wx-section-index`、`wx-card-caption`、`wx-section-mark` 必须在同一条水平信息线上，`h2` 独占下一行
+- `wx-section-mark` 是唯一正式的章节语义图形接口，但它必须是轻量辅助，不得做成厚边框、白底按钮感的大徽记
+- `event-notice` / 活动招募 / 公告通知默认使用 `data-page-tone="event-notice"` + `data-heading-system="index-led"`
+- 只有 `icon-led` / `dual` 才需要显式输出 `wx-section-icon`
 
 禁止做法：
 
 - 使用没有语义的占位 SVG，例如通用加号、调试十字
 - 同一页里第一节是图标系统，第二节突然跳成编号系统
 - 所有 section 都复用同一个无含义 icon，只换颜色假装区分
+- 标题左右各挂一个 SVG，或者在标题下补一条没有信息职责的装饰轨道
+- 继续输出 `wx-title-flank` / `wx-heading-ornament` / `wx-section-emblem` 这类旧过渡接口
 
 #### 指标网格模板
 
@@ -541,7 +558,8 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - [ ] 根节点带有正确的 `data-preset`、`data-style-family`、`data-style-archetype`
 - [ ] 所有 class 名都在上方白名单中
 - [ ] 有且仅有一个 `wx-hero-card`，且包含 `wx-hero-mesh` SVG 背景
-- [ ] 每个带 `wx-section-top` 的 `wx-section-card` 都使用统一的章节标题系统；默认结构为 `wx-section-top` > `wx-section-icon` + `wx-section-heading`（含 `wx-section-index`、`wx-card-caption`、`h2`），但 summary / quote 这类信息卡不必强行补章节头
+- [ ] 每个带 `wx-section-top` 的 `wx-section-card` 都使用统一的章节标题系统；阅读型默认结构为 `wx-section-top` > `wx-section-heading`（含 `wx-section-index`、`wx-card-caption`、`wx-title-row`、`h2`、`wx-section-mark`），只有 `icon-led` / `dual` 才额外输出 `wx-section-icon`
+- [ ] 阅读型章节头里，`wx-section-index`、`wx-card-caption`、`wx-section-mark` 都属于元信息层，三者必须在同一水平线上，视觉重量低于 `h2`
 - [ ] 每个 `wx-section-card` 的正文都包裹在 `wx-section-body` 中
 - [ ] 没有任何 Emoji 字符
 - [ ] 如使用 `wx-divider-ornament`，整篇最多 1-2 个，且必须与主题匹配；早报/资讯/新闻类页面默认应为 0 个
@@ -551,9 +569,12 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - [ ] `wx-metric-grid` / `wx-compare-grid` 在手机端最多 2 列，不允许 3 列或 4 列
 - [ ] `wx-metric-card` 的 `<strong>` 放数字/关键词，`<span>` 放说明
 - [ ] `wx-compare-card` 用 `<h3>` + `<p>`，不是自创的 `wx-compare-col`/`wx-compare-head`
+- [ ] 所有并列模块都要主动降字号：两列 `wx-metric-card` / `wx-compare-card` / 时间线 / 摘要卡里的小标题，必须明显小于章节标题，不能再按 section 级标题处理
+- [ ] 两列卡片中的标题如果超过 2-3 行，说明字号过大，必须继续缩小直到移动端扫读顺畅
 - [ ] `wx-quote-card` 是 `<blockquote>` 标签，不是 `<div>`
 - [ ] 没有把 `aurora-glass`、`Skill Demo`、`preset-id`、"我可以继续" 这类内部元信息写进用户可见正文
-- [ ] `wx-inline-graphic` / `wx-badge-art` 不是“空白占位块”，而是有清晰可见的视觉内容
+- [ ] `wx-section-mark` 每个章节最多 1 个，且必须有明确语义；禁止继续输出 `wx-title-flank` / `wx-heading-ornament` / `wx-section-emblem`
+- [ ] `wx-inline-graphic` / `wx-badge-art` 只有在承担信息职责时才出现；`event-notice` / 阅读型页面默认不使用
 
 **生成前必须完成的检查清单（`free` 模式）：**
 
@@ -591,7 +612,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 >
 > 错误示例：`<h2>🚀 产品亮点</h2>` `<li>✅ 支持多端</li>` `<span class="wx-card-caption">📌 核心要点</span>`
 >
-> 正确示例：`<h2>产品亮点</h2>`（配合 `wx-section-icon` 中的 SVG 图标）
+> 正确示例：`<h2>产品亮点</h2>`（配合 `wx-section-mark` 或语义明确的 `wx-section-icon`）
 
 **审美设计规范（确保高品质输出）：**
 
@@ -608,17 +629,19 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
    - 可搭配 `text-shadow` 增加层次感
    - h2 章节标题 20-26px，`color: var(--accent-strong)`，`font-weight: 800`
 
-3. **SVG 装饰是视觉灵魂** — 每篇文章至少包含：
+3. **语义 SVG 是视觉灵魂** — 每篇文章至少包含：
    - 1 个 `wx-hero-mesh` SVG 背景（渐变 + 几何图形，不少于 3 个图形元素）
-   - 每个带 `wx-section-top` 的 `wx-section-card` 必须服从统一的章节标题系统；SVG 可以从内置库选，也可以根据主题自行设计，但必须有语义
+   - 每个带 `wx-section-top` 的 `wx-section-card` 必须服从统一的章节标题系统；章节图形默认用单个 `wx-section-mark` 点题，只有 `icon-led` / `dual` 才使用 `wx-section-icon`
+   - 阅读型页面的 `wx-section-mark` 必须和编号、小标题处在同一信息层，并且保持轻、细、小；不能抢章节标题风头
    - 如确实需要章节转场，可使用 0-2 个 `wx-divider-ornament`，并按主题选择 `editorial-notch` / `soft-stars` / `chevron-band` / `fold-divider`
-   - 适当使用 `wx-inline-graphic` 或 `wx-badge-art` 增加视觉丰富度
+   - 如确实需要 `wx-inline-graphic` 或 `wx-badge-art`，它们必须帮助读者理解流程、时间、结构或证据，而不是单纯增加装饰感
 
    **重要补充**：
    - `wx-inline-graphic` / `wx-badge-art` 是可选项，不是必须项
    - `wx-divider-ornament` 也是可选项，不是“每个大章节都要贴一个”
    - 对早报、资讯简报、新闻汇总、理论梳理这类信息密集页面，默认不放分割线；章节切换靠卡片留白和标题变化完成
    - 如果做不出有辨识度、可见度足够的 SVG，宁可不用，也不要生成一个像空白玻璃板的“假装饰”
+   - 禁止在标题左右对称挂 2 个 SVG，也禁止让图形占据和标题同等的横向空间
    - 禁止反复使用通用的“横线 + 圆环”分隔线；克制型页面优先 `editorial-notch` 或直接省略，科技风优先 `chevron-band`，厚重风格可用 `fold-divider`
    - 在亮色主题中，禁止使用纯白或近白的低对比 SVG 作为唯一视觉内容
    - 优先使用 `currentColor`、`var(--accent-strong)`、`var(--accent)`、`var(--text-main)` 等可见颜色
@@ -664,7 +687,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 12. **避免模板同质化** — 默认不要总是固定成“hero + intro + 若干同尺寸 section-card + 总结”这一种套路。允许根据内容采用：
    - hero 后直接接 `wx-metric-grid`
    - hero 后先用 `wx-quote-card` 定调
-   - 中段穿插 `wx-inline-graphic` 或 `wx-badge-art`
+   - 中段穿插 1 个真正帮助理解结构的 `wx-inline-graphic`
    - 用 `wx-compare-grid` 取代部分纯文本 section
    - 让重点章节做更强的视觉强调，其余章节保持克制
 

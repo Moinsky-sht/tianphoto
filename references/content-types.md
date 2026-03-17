@@ -1,6 +1,22 @@
-# 内容主题识别规则
+# 内容主题与模板识别规则
 
-AI 根据文章文本自动识别内容属于以下 8 种主题之一，并据此选择最合适的排版预设。
+2.1.0 之后，Tianphoto 不再只判断“适合哪个 preset”，而是先判断**内容模板**，再决定 family / preset。
+
+识别顺序：
+
+1. 先判断内容属于哪个 `content-template`
+2. 再决定最适合的 `style family`
+3. 最后才落到具体 `preset`
+
+当前内置的内容模板有：
+
+- `event-notice` — 活动招募 / 通知 / 公告 / 报名页
+- `weekly-report` — 周报 / 复盘 / 项目进展 / 状态汇总
+- `release-brief` — 发布说明 / 功能上线 / 版本公告
+- `knowledge-article` — 教程 / 科普 / 研究 / 方法论
+- `case-recap` — 案例拆解 / 项目复盘 / 落地回顾
+
+AI 再根据文章文本自动识别内容主题，并据此选择最合适的排版预设。
 
 ## 识别映射表
 
@@ -14,6 +30,39 @@ AI 根据文章文本自动识别内容属于以下 8 种主题之一，并据�
 | 数据分析 | 数据、报告、趋势、同比、指标、统计、分析、洞察 | `metro-metrics` | `cyan-data` | 指标网格（wx-metric-grid）+ 时间线 + 对比网格 |
 | 教程指南 | 步骤、教程、如何、方法、指南、操作、配置、设置 | `mint-deck` | `ocean-brief` | 步骤编号 section-card + 清单列表 |
 | 品牌故事 | 品牌、理念、愿景、价值观、使命、文化、初心、坚持 | `pearl-board` | `velvet-luxe` | 高端留白，logo 突出，品牌横幅 |
+
+## 模板与结构建议
+
+### `event-notice`
+
+- 默认搭配：`data-page-tone="event-notice"` + `data-heading-system="index-led"`
+- 强调报名、时间、地点、日程、资格、奖项这类可扫描信息
+- 不使用 `wx-image-drop-zone`
+- 不允许无语义装饰图抢标题
+
+### `weekly-report`
+
+- 优先出现 `wx-metric-grid` 或 `wx-compare-grid`
+- metric card 适合短句，不适合长段解释
+- 更强调状态、完成项、风险、下周计划
+
+### `release-brief`
+
+- hero 可以更强，但不能只剩一个 hero
+- 至少需要 2 个 section 或 1 个数据块
+- 适合版本亮点、更新说明、能力对比
+
+### `knowledge-article`
+
+- 阅读节奏优先
+- 更适合 `wx-intro-card`、`wx-quote-card`、多段 `wx-section-card`
+- 默认不鼓励拖拽占位图和无职责装饰图
+
+### `case-recap`
+
+- 至少应该有 `timeline / compare / summary` 中的一类结构
+- 强调“过程、结果、经验、下一步”
+- 不应只是一串普通正文段落
 
 ## 识别规则
 

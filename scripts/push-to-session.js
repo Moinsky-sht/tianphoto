@@ -33,78 +33,52 @@ function detectChannel() {
   return 'generic';
 }
 
-/**
- * 通过飞书推送文件
- */
-async function pushViaFeishu(filePath) {
-  console.log(`[Tianphoto] 通过飞书推送: ${path.basename(filePath)}`);
-  
-  // 检查 feishu_drive_file 工具是否可用
-  try {
-    // 使用 feishu_drive_file upload 功能
-    const { execSync } = require('child_process');
-    
-    // 上传到飞书云空间并发送
-    const result = execSync(
-      `openclaw tool feishu_drive_file --action upload --file_path "${filePath}" --folder_token "" 2>&1 || echo "UPLOAD_FALLBACK"`,
-      { encoding: 'utf-8', timeout: 30000 }
-    );
-    
-    console.log('[Tianphoto] 飞书推送结果:', result);
-    return true;
-  } catch (err) {
-    console.error('[Tianphoto] 飞书推送失败:', err.message);
-    return false;
-  }
+function formatFileSize(filePath) {
+  return (fs.statSync(filePath).size / 1024).toFixed(2);
 }
 
-/**
- * 通过 Discord 推送文件
- */
-async function pushViaDiscord(filePath) {
-  console.log(`[Tianphoto] 通过 Discord 推送: ${path.basename(filePath)}`);
-  // Discord 文件推送实现
-  return false;
+function createDataUrl(filePath) {
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  const mime = ext === 'html' ? 'text/html' : `text/${ext || 'plain'}`;
+  const base64 = fs.readFileSync(filePath).toString('base64');
+  return `data:${mime};base64,${base64}`;
 }
 
-/**
- * 通过 Slack 推送文件
- */
-async function pushViaSlack(filePath) {
-  console.log(`[Tianphoto] 通过 Slack 推送: ${path.basename(filePath)}`);
-  // Slack 文件推送实现
-  return false;
+function buildResult(channel, filePath) {
+  return {
+    channel,
+    success: false,
+    method: 'local-only',
+    file_path: filePath,
+    file_name: path.basename(filePath),
+    file_size_kb: formatFileSize(filePath),
+    detail: '',
+    extra: {},
+  };
 }
 
-/**
- * 通用推送（返回文件路径供用户下载）
- */
-async function pushGeneric(filePath) {
-  console.log(`[Tianphoto] 文件已生成: ${filePath}`);
-  console.log(`[Tianphoto] 文件大小: ${(fs.statSync(filePath).size / 1024).toFixed(2)} KB`);
-  
-  // 尝试使用 OpenClaw 的 message 工具发送文件
+function looksSuccessful(output, fallbackToken) {
+  if (!output) return false;
+  if (fallbackToken && output.includes(fallbackToken)) return false;
+  return !/SEND_FALLBACK|UPLOAD_FALLBACK|error|failed|not found|unknown/i.test(output);
+}
+
+function runShell(command, timeout = 30000) {
   try {
     const { execSync } = require('child_process');
-    
-    // 生成文件下载链接或提示
-    const fileName = path.basename(filePath);
-    
-    // 检查是否可以通过 message 工具发送
-    const result = execSync(
-      `openclaw message send --filePath "${filePath}" --message "📄 Tianphoto 生成的图文页面" 2>&1 || echo "SEND_FALLBACK"`,
-      { encoding: 'utf-8', timeout: 30000 }
-    );
-    
-    if (!result.includes('SEND_FALLBACK') && !result.includes('error')) {
-      console.log('[Tianphoto] 文件已发送到会话');
-      return true;
-    }
+    const output = execSync(command, {
+      encoding: 'utf-8',
+      timeout,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { ok: true, output: String(output || '').trim() };
   } catch (err) {
-    // 忽略错误，使用备用方案
+    return {
+      ok: false,
+      output: `${err.stdout || ''}\n${err.stderr || ''}`.trim(),
+      error: err.message,
+    };
   }
-  
-  return false;
 }
 
 /**
@@ -112,20 +86,18 @@ async function pushGeneric(filePath) {
  * 提供直接的下载链接和 base64 预览
  */
 async function pushViaWebChat(filePath) {
+  const result = buildResult('webchat', filePath);
   console.log(`[Tianphoto] WebChat 渠道，生成下载链接: ${path.basename(filePath)}`);
-  
-  const stats = fs.statSync(filePath);
-  const fileSize = (stats.size / 1024).toFixed(2);
-  
+
   // 生成 base64 data URL（用于浏览器直接打开）
   const dataUrl = createDataUrl(filePath);
-  
+
   console.log('');
   console.log('='.repeat(60));
   console.log('📄 Tianphoto 图文页面已生成');
   console.log('='.repeat(60));
   console.log(`文件: ${path.basename(filePath)}`);
-  console.log(`大小: ${fileSize} KB`);
+  console.log(`大小: ${result.file_size_kb} KB`);
   console.log(`路径: ${filePath}`);
   console.log('');
   console.log('💡 提示: 在浏览器中打开以下链接查看/编辑：');
@@ -142,8 +114,88 @@ async function pushViaWebChat(filePath) {
   const downloadPagePath = filePath.replace('.html', '-download.html');
   fs.writeFileSync(downloadPagePath, downloadHtml, 'utf-8');
   console.log(`[Tianphoto] 下载页面已生成: ${downloadPagePath}`);
-  
-  return true;
+
+  result.success = true;
+  result.method = 'webchat-download-page';
+  result.detail = 'Generated a browser-openable download page and data URL.';
+  result.extra.download_page = downloadPagePath;
+  return result;
+}
+
+async function pushGenericMessage(filePath, channel) {
+  const result = buildResult(channel, filePath);
+  console.log(`[Tianphoto] 文件已生成: ${filePath}`);
+  console.log(`[Tianphoto] 文件大小: ${result.file_size_kb} KB`);
+
+  const message = `📄 Tianphoto 生成的图文页面 · ${path.basename(filePath)}`;
+  const send = runShell(
+    `openclaw message send --filePath "${filePath}" --message "${message}" 2>&1 || echo "SEND_FALLBACK"`
+  );
+
+  if (looksSuccessful(send.output, 'SEND_FALLBACK')) {
+    result.success = true;
+    result.method = 'openclaw-message-send';
+    result.detail = 'HTML file was sent back to the current session.';
+    return result;
+  }
+
+  result.detail = send.output || send.error || 'message send unavailable';
+  return result;
+}
+
+/**
+ * 通过飞书推送文件
+ */
+async function pushViaFeishu(filePath) {
+  const result = buildResult('feishu', filePath);
+  console.log(`[Tianphoto] 通过飞书推送: ${path.basename(filePath)}`);
+
+  const upload = runShell(
+    `openclaw tool feishu_drive_file --action upload --file_path "${filePath}" --folder_token "" 2>&1 || echo "UPLOAD_FALLBACK"`
+  );
+
+  if (looksSuccessful(upload.output, 'UPLOAD_FALLBACK')) {
+    result.success = true;
+    result.method = 'feishu_drive_file.upload';
+    result.detail = 'Uploaded via OpenClaw Feishu drive tool.';
+    return result;
+  }
+
+  const fallback = await pushGenericMessage(filePath, 'feishu');
+  if (fallback.success) {
+    fallback.method = 'feishu-fallback:openclaw-message-send';
+    return fallback;
+  }
+
+  result.detail = upload.output || upload.error || fallback.detail || 'feishu push unavailable';
+  return result;
+}
+
+/**
+ * 通过 Discord 推送文件
+ */
+async function pushViaDiscord(filePath) {
+  console.log(`[Tianphoto] 通过 Discord 推送: ${path.basename(filePath)}`);
+  const result = await pushGenericMessage(filePath, 'discord');
+  if (result.success) result.method = 'discord-fallback:openclaw-message-send';
+  return result;
+}
+
+/**
+ * 通过 Slack 推送文件
+ */
+async function pushViaSlack(filePath) {
+  console.log(`[Tianphoto] 通过 Slack 推送: ${path.basename(filePath)}`);
+  const result = await pushGenericMessage(filePath, 'slack');
+  if (result.success) result.method = 'slack-fallback:openclaw-message-send';
+  return result;
+}
+
+/**
+ * 通用推送（返回文件路径供用户下载）
+ */
+async function pushGeneric(filePath) {
+  return pushGenericMessage(filePath, 'generic');
 }
 
 /**
@@ -284,27 +336,27 @@ async function main() {
   
   const channel = detectChannel();
   console.log(`[Tianphoto] 检测到渠道: ${channel}`);
-  
-  let success = false;
-  
+
+  let result = buildResult(channel, filePath);
+
   switch (channel) {
     case 'webchat':
-      success = await pushViaWebChat(filePath);
+      result = await pushViaWebChat(filePath);
       break;
     case 'feishu':
-      success = await pushViaFeishu(filePath);
+      result = await pushViaFeishu(filePath);
       break;
     case 'discord':
-      success = await pushViaDiscord(filePath);
+      result = await pushViaDiscord(filePath);
       break;
     case 'slack':
-      success = await pushViaSlack(filePath);
+      result = await pushViaSlack(filePath);
       break;
     default:
-      success = await pushGeneric(filePath);
+      result = await pushGeneric(filePath);
   }
-  
-  if (!success) {
+
+  if (!result.success) {
     // 备用方案：生成 data URL
     console.log('[Tianphoto] 生成备选访问方式...');
     console.log(`[Tianphoto] 文件位置: ${filePath}`);
@@ -317,9 +369,15 @@ async function main() {
       console.log(dataUrl.substring(0, 200) + '...');
     }
   }
-  
+
+  console.log(
+    `[Tianphoto] 回传状态: ${result.success ? 'success' : 'local-only'} ` +
+    `(${result.method})`
+  );
+
   // 始终返回文件路径，供调用方使用
   console.log(`TIANPHOTO_OUTPUT_FILE:${filePath}`);
+  console.log(`TIANPHOTO_PUSH_RESULT:${JSON.stringify(result)}`);
 }
 
 main().catch(err => {

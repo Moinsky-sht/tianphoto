@@ -171,6 +171,117 @@ function getArticleHeadingSystem(htmlContent) {
   return match ? match[2] : null;
 }
 
+function getArticlePageTone(htmlContent) {
+  const match = htmlContent.match(/data-page-tone=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleContentTemplate(htmlContent) {
+  const match = htmlContent.match(/data-content-template=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function extractReadableText(htmlContent) {
+  return String(htmlContent || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const CONTENT_TEMPLATE_PATTERNS = [
+  {
+    id: "event-notice",
+    patterns: ["招募", "报名", "活动", "地点", "时间", "日程", "通知", "公告", "参会", "报名群", "开场", "路演"],
+  },
+  {
+    id: "weekly-report",
+    patterns: ["周报", "本周", "下周", "完成", "进展", "风险", "里程碑", "复盘", "进行中", "计划"],
+  },
+  {
+    id: "release-brief",
+    patterns: ["发布", "上线", "更新", "升级", "版本", "新功能", "更新说明", "发布说明", "changelog", "release"],
+  },
+  {
+    id: "knowledge-article",
+    patterns: ["原理", "机制", "为什么", "教程", "指南", "研究", "解释", "方法", "知识", "学习"],
+  },
+  {
+    id: "case-recap",
+    patterns: ["案例", "项目", "复盘", "拆解", "实践", "经验", "落地", "结果", "过程", "客户"],
+  },
+];
+
+function scoreTemplatePatterns(text, patterns) {
+  return patterns.reduce((score, token) => {
+    const matches = text.match(new RegExp(token, "gi"));
+    return score + (matches ? matches.length : 0);
+  }, 0);
+}
+
+function detectContentTemplate(htmlContent, preset) {
+  const existing = getArticleContentTemplate(htmlContent);
+  if (existing) return existing;
+
+  const pageTone = getArticlePageTone(htmlContent);
+  if (pageTone === "event-notice") return "event-notice";
+
+  const family = preset?.family || getArticleFamily(htmlContent);
+  const titleText = extractReadableText(htmlContent.match(/<h1\b[\s\S]*?<\/h1>/i)?.[0] || "");
+  const leadText = extractReadableText(htmlContent.match(/<p\b[^>]*class=(['"])[^'"]*wx-lead[^'"]*\1[\s\S]*?<\/p>/i)?.[0] || "");
+  const fullText = extractReadableText(htmlContent);
+
+  let bestId = null;
+  let bestScore = 0;
+
+  CONTENT_TEMPLATE_PATTERNS.forEach((entry) => {
+    const score = scoreTemplatePatterns(titleText, entry.patterns) * 3
+      + scoreTemplatePatterns(leadText, entry.patterns) * 2
+      + scoreTemplatePatterns(fullText, entry.patterns);
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = entry.id;
+    }
+  });
+
+  if (bestId && bestScore > 0) return bestId;
+  if (PRODUCT_FAMILIES.has(family)) return "release-brief";
+  if (READING_PRIORITY_FAMILIES.has(family)) return "knowledge-article";
+  return "case-recap";
+}
+
+const READING_PRIORITY_FAMILIES = new Set([
+  "swiss-journal",
+  "ledger-spec",
+  "archive-paper",
+  "field-atlas",
+  "brief-bulletin",
+  "skyline-pane",
+]);
+
+const PRODUCT_FAMILIES = new Set([
+  "ops-console",
+  "studio-ribbon",
+  "neon-signal",
+]);
+
+const EXPRESSIVE_FAMILIES = new Set([
+  "poster-brutal",
+  "play-lab",
+  "deck-story",
+  "salon-luxe",
+  "night-gallery",
+  "aurora-drift",
+]);
+
 const FAMILY_HEADING_SYSTEMS = {
   "swiss-journal": "index-led",
   "field-atlas": "icon-led",
@@ -189,7 +300,10 @@ const FAMILY_HEADING_SYSTEMS = {
   "studio-ribbon": "plaque",
 };
 
-function getRecommendedHeadingSystem(preset) {
+function getRecommendedHeadingSystem(preset, htmlContent = "") {
+  if (getArticlePageTone(htmlContent) === "event-notice") {
+    return "index-led";
+  }
   return FAMILY_HEADING_SYSTEMS[preset?.family] || "icon-led";
 }
 
@@ -228,6 +342,8 @@ function upsertClassTokens(attrs, tokens, replaceMatchers = []) {
 function applyPresetMetadata(htmlContent, preset) {
   return htmlContent.replace(/<article\b([^>]*)>/i, (match, attrs) => {
     let nextAttrs = attrs;
+    const existingHeadingSystem = getArticleHeadingSystem(htmlContent) || getArticleHeadingSystem(match);
+    const detectedTemplate = detectContentTemplate(htmlContent, preset);
     nextAttrs = upsertAttribute(nextAttrs, "data-preset", preset.id);
 
     if (preset.family) {
@@ -239,7 +355,12 @@ function applyPresetMetadata(htmlContent, preset) {
     nextAttrs = upsertAttribute(
       nextAttrs,
       "data-heading-system",
-      getArticleHeadingSystem(match) || getRecommendedHeadingSystem(preset)
+      existingHeadingSystem || getRecommendedHeadingSystem(preset, htmlContent)
+    );
+    nextAttrs = upsertAttribute(
+      nextAttrs,
+      "data-content-template",
+      detectedTemplate
     );
 
     if (getArticleUiMode(match) !== "free") {
@@ -400,6 +521,66 @@ function countTemplateColumns(styleValue) {
   return columns ? columns.length : null;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function countClassToken(htmlContent, className) {
+  const regex = new RegExp(`class=(['"])[^'"]*\\b${escapeRegExp(className)}\\b[^'"]*\\1`, "gi");
+  return (htmlContent.match(regex) || []).length;
+}
+
+function extractBalancedBlockFromOpenTag(htmlContent, startIndex, tagName) {
+  const tagRegex = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+  tagRegex.lastIndex = startIndex;
+  let depth = 0;
+  let started = false;
+  let match;
+
+  while ((match = tagRegex.exec(htmlContent))) {
+    const token = match[0];
+    const isClosing = token.startsWith("</");
+    const isSelfClosing = /\/>$/.test(token);
+
+    if (!started) {
+      started = true;
+      depth = 1;
+      continue;
+    }
+
+    if (isClosing) {
+      depth -= 1;
+    } else if (!isSelfClosing) {
+      depth += 1;
+    }
+
+    if (depth === 0) {
+      return htmlContent.slice(startIndex, tagRegex.lastIndex);
+    }
+  }
+
+  return null;
+}
+
+function collectBalancedBlocksByClass(htmlContent, className, tagNames = ["div", "section"]) {
+  const tags = tagNames.map((tag) => escapeRegExp(tag)).join("|");
+  const regex = new RegExp(
+    `<(${tags})\\b[^>]*class=(['"])[^'"]*\\b${escapeRegExp(className)}\\b[^'"]*\\2[^>]*>`,
+    "gi"
+  );
+  const blocks = [];
+  let match;
+
+  while ((match = regex.exec(htmlContent))) {
+    const block = extractBalancedBlockFromOpenTag(htmlContent, match.index, match[1]);
+    if (!block) continue;
+    blocks.push(block);
+    regex.lastIndex = match.index + block.length;
+  }
+
+  return blocks;
+}
+
 function validateGridLayouts(htmlContent) {
   const regex = /<div[^>]*class=(['"])([^'"]*wx-(metric|compare)-grid[^'"]*)\1[^>]*style=(['"])([^'"]*)\4/gi;
   let match;
@@ -430,6 +611,35 @@ function svgLooksLowContrast(svgContent) {
 function validateDecorativeGraphics(htmlContent) {
   const lightSkins = new Set(["editorial", "glass", "magazine", "soft", "tech", "mono", "luxe", "brutal"]);
   const skin = getArticleSkin(htmlContent);
+  const pageTone = getArticlePageTone(htmlContent);
+  const family = getArticleFamily(htmlContent);
+  const inlineGraphicCount = countClassToken(htmlContent, "wx-inline-graphic");
+  const badgeArtCount = countClassToken(htmlContent, "wx-badge-art");
+
+  if (pageTone === "event-notice") {
+    const decorativeCount = inlineGraphicCount + badgeArtCount;
+    if (decorativeCount > 0) {
+      throw new Error(
+        "Visual guard: event-notice pages may only use semantic section marks and native images. " +
+        "Remove wx-inline-graphic / wx-badge-art unless they are rewritten as a real infographic."
+      );
+    }
+  }
+
+  if (family && READING_PRIORITY_FAMILIES.has(family)) {
+    if (badgeArtCount > 0) {
+      throw new Error(
+        `Visual guard: ${family} is a reading-first family. Remove wx-badge-art and let titles, captions, and spacing carry the rhythm.`
+      );
+    }
+
+    if (inlineGraphicCount > 1) {
+      throw new Error(
+        `Visual guard: ${family} should not stack multiple wx-inline-graphic blocks. Use at most one information graphic in reading-first layouts.`
+      );
+    }
+  }
+
   if (!skin || !lightSkins.has(skin)) return;
 
   const regex = /<div[^>]*class=(['"])([^'"]*wx-(inline-graphic|badge-art)[^'"]*)\1[^>]*>([\s\S]*?)<\/div>/gi;
@@ -451,43 +661,113 @@ function validateDecorativeGraphics(htmlContent) {
 }
 
 function validateSectionHeadingSystems(htmlContent) {
-  const sectionTopCount = (htmlContent.match(/class=(['"])[^'"]*wx-section-top[^'"]*\1/gi) || []).length;
-  if (sectionTopCount === 0) return;
+  const sectionTopBlocks = collectBalancedBlocksByClass(htmlContent, "wx-section-top", ["div"]);
+  if (sectionTopBlocks.length === 0) return;
+
   const headingSystem = getArticleHeadingSystem(htmlContent);
-  const iconBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-section-icon[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
-  const iconCount = iconBlocks.length;
-  const indexBlocks = [...htmlContent.matchAll(/<[^>]*class=(['"])[^'"]*wx-section-index[^'"]*\1[^>]*>([\s\S]*?)<\/[^>]+>/gi)];
-  const indexCount = indexBlocks.length;
+  const pageTone = getArticlePageTone(htmlContent);
+  const family = getArticleFamily(htmlContent);
   const indexes = [];
   const placeholderHits = [];
+  const sectionNumbersWithLegacyDecor = [];
+  const sectionNumbersWithExtraMarks = [];
 
-  iconBlocks.forEach((block, idx) => {
-    if (/M5\s*12h14[^"]*M12\s*5v14|M6\s*12h12[^"]*M12\s*6v12/i.test(block.replace(/\s+/g, " "))) {
-      placeholderHits.push(idx + 1);
+  if (pageTone === "event-notice" && headingSystem !== "index-led") {
+    throw new Error(
+      "Heading guard: event-notice pages must use data-heading-system=\"index-led\" so the title remains the primary reading target."
+    );
+  }
+
+  if (headingSystem === "dual" && family && !PRODUCT_FAMILIES.has(family)) {
+    throw new Error(
+      `Heading guard: data-heading-system="dual" is reserved for product/panel families. ` +
+      `Use index-led / icon-led / plaque for ${family}.`
+    );
+  }
+
+  sectionTopBlocks.forEach((sectionTopBlock, idx) => {
+    const sectionNumber = idx + 1;
+    const iconBlocks = collectBalancedBlocksByClass(sectionTopBlock, "wx-section-icon", ["div"]);
+    const headingBlocks = collectBalancedBlocksByClass(sectionTopBlock, "wx-section-heading", ["div"]);
+
+    if (headingBlocks.length === 0) {
+      throw new Error(`Heading guard: section ${sectionNumber} has wx-section-top but no wx-section-heading.`);
+    }
+
+    const headingBlock = headingBlocks[0];
+    const iconCount = iconBlocks.length;
+    const indexCount = countClassToken(headingBlock, "wx-section-index");
+    const markCount = countClassToken(headingBlock, "wx-section-mark");
+    const legacyDecorCount = countClassToken(headingBlock, "wx-section-emblem")
+      + countClassToken(headingBlock, "wx-title-flank")
+      + countClassToken(headingBlock, "wx-heading-ornament");
+
+    if (headingSystem === "dual" && (iconCount === 0 || indexCount === 0)) {
+      throw new Error(
+        "Heading guard: data-heading-system=\"dual\" requires each headed section to provide both wx-section-icon and wx-section-index."
+      );
+    }
+
+    if (headingSystem === "icon-led" && iconCount === 0) {
+      throw new Error(
+        "Heading guard: data-heading-system=\"icon-led\" requires each headed section to provide wx-section-icon."
+      );
+    }
+
+    if (headingSystem === "index-led" && indexCount === 0) {
+      throw new Error(
+        "Heading guard: data-heading-system=\"index-led\" requires each headed section to provide wx-section-index."
+      );
+    }
+
+    if (pageTone === "event-notice" && iconCount > 0) {
+      throw new Error(
+        `Heading guard: event-notice section ${sectionNumber} still contains wx-section-icon. ` +
+        "Use wx-section-mark as the single semantic badge and keep the title column unobstructed."
+      );
+    }
+
+    if (pageTone === "event-notice" && markCount !== 1) {
+      throw new Error(
+        `Heading guard: event-notice section ${sectionNumber} must provide exactly one wx-section-mark.`
+      );
+    }
+
+    if (legacyDecorCount > 0) {
+      sectionNumbersWithLegacyDecor.push(sectionNumber);
+    }
+
+    if (markCount + legacyDecorCount > 1) {
+      sectionNumbersWithExtraMarks.push(sectionNumber);
+    }
+
+    iconBlocks.forEach((block) => {
+      if (/M5\s*12h14[^"]*M12\s*5v14|M6\s*12h12[^"]*M12\s*6v12/i.test(block.replace(/\s+/g, " "))) {
+        placeholderHits.push(sectionNumber);
+      }
+    });
+
+    const indexMatch = headingBlock.match(/<[^>]*class=(['"])[^'"]*wx-section-index[^'"]*\1[^>]*>([\s\S]*?)<\/[^>]+>/i);
+    if (indexMatch) {
+      const text = indexMatch[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const numMatch = text.match(/(\d{1,3})/);
+      if (numMatch) {
+        indexes.push({ section: sectionNumber, value: parseInt(numMatch[1], 10) });
+      }
     }
   });
 
-  indexBlocks.forEach((match, idx) => {
-    const text = match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    const numMatch = text.match(/(\d{1,3})/);
-    if (numMatch) indexes.push({ section: idx + 1, value: parseInt(numMatch[1], 10) });
-  });
-
-  if (headingSystem === "dual" && (iconCount < sectionTopCount || indexCount < sectionTopCount)) {
+  if (sectionNumbersWithLegacyDecor.length > 0) {
     throw new Error(
-      "Heading guard: data-heading-system=\"dual\" requires each headed section to provide both wx-section-icon and wx-section-index."
+      `Heading guard: deprecated heading decorators detected in section ${sectionNumbersWithLegacyDecor.join(", ")}. ` +
+      "Use a single wx-section-mark instead of wx-title-flank / wx-heading-ornament / wx-section-emblem."
     );
   }
 
-  if (headingSystem === "icon-led" && iconCount < sectionTopCount) {
+  if (sectionNumbersWithExtraMarks.length > 0) {
     throw new Error(
-      "Heading guard: data-heading-system=\"icon-led\" requires each headed section to provide wx-section-icon."
-    );
-  }
-
-  if (headingSystem === "index-led" && indexCount < sectionTopCount) {
-    throw new Error(
-      "Heading guard: data-heading-system=\"index-led\" requires each headed section to provide wx-section-index."
+      `Heading guard: section ${sectionNumbersWithExtraMarks.join(", ")} uses multiple heading graphics. ` +
+      "Keep one semantic badge per section heading."
     );
   }
 
@@ -562,11 +842,94 @@ function validateFreeModeDesign(htmlContent) {
   }
 }
 
+function extractTextFromBlock(blockHtml) {
+  return extractReadableText(blockHtml);
+}
+
+function countComponentUsage(htmlContent) {
+  return {
+    hero: countClassToken(htmlContent, "wx-hero-card"),
+    intro: countClassToken(htmlContent, "wx-intro-card"),
+    section: countClassToken(htmlContent, "wx-section-card"),
+    metricGrid: countClassToken(htmlContent, "wx-metric-grid"),
+    metricCard: countClassToken(htmlContent, "wx-metric-card"),
+    compareGrid: countClassToken(htmlContent, "wx-compare-grid"),
+    compareCard: countClassToken(htmlContent, "wx-compare-card"),
+    timeline: countClassToken(htmlContent, "wx-timeline-card"),
+    quote: countClassToken(htmlContent, "wx-quote-card"),
+    summary: countClassToken(htmlContent, "wx-summary-card"),
+    imageDropZone: countClassToken(htmlContent, "wx-image-drop-zone"),
+  };
+}
+
+function validateNativeImageUsage(htmlContent) {
+  const counts = countComponentUsage(htmlContent);
+  const pageTone = getArticlePageTone(htmlContent);
+  const template = getArticleContentTemplate(htmlContent);
+  const family = getArticleFamily(htmlContent);
+
+  if (counts.imageDropZone === 0) return;
+  if (
+    pageTone === "event-notice"
+    || ["event-notice", "weekly-report", "knowledge-article", "case-recap"].includes(template)
+    || (family && READING_PRIORITY_FAMILIES.has(family))
+  ) {
+    throw new Error(
+      "Image guard: this page still contains wx-image-drop-zone. " +
+      "Use native <img> blocks for final delivery pages so the layout reads like a finished document."
+    );
+  }
+}
+
+function validateContentTemplateStructure(htmlContent) {
+  const template = getArticleContentTemplate(htmlContent);
+  if (!template) return;
+
+  const counts = countComponentUsage(htmlContent);
+  const metricCardTexts = collectBalancedBlocksByClass(htmlContent, "wx-metric-card", ["div"])
+    .map(extractTextFromBlock)
+    .filter(Boolean);
+  const verboseMetricCards = metricCardTexts.filter((text) => text.length > 52);
+
+  if (template === "event-notice" && getArticlePageTone(htmlContent) !== "event-notice") {
+    throw new Error(
+      "Template guard: data-content-template=\"event-notice\" must be paired with data-page-tone=\"event-notice\"."
+    );
+  }
+
+  if (template === "weekly-report" && counts.metricGrid + counts.compareGrid === 0) {
+    throw new Error(
+      "Template guard: weekly-report pages should include at least one wx-metric-grid or wx-compare-grid so progress can be scanned quickly."
+    );
+  }
+
+  if (template === "release-brief" && counts.section < 2 && (counts.metricGrid + counts.compareGrid) === 0) {
+    throw new Error(
+      "Template guard: release-brief pages need at least two section cards or one data block so the release is not reduced to a single hero card."
+    );
+  }
+
+  if (template === "case-recap" && counts.timeline + counts.compareGrid + counts.summary === 0) {
+    throw new Error(
+      "Template guard: case-recap pages should include a timeline, compare grid, or summary card to make the recap structure visible."
+    );
+  }
+
+  if (["event-notice", "weekly-report", "release-brief"].includes(template) && verboseMetricCards.length > 0) {
+    throw new Error(
+      `Template guard: found ${verboseMetricCards.length} overly verbose wx-metric-card block(s). ` +
+      "Move prose-heavy content into section cards and keep metric cards short."
+    );
+  }
+}
+
 function validateArticleDesign(htmlContent) {
   validateGridLayouts(htmlContent);
   validateDecorativeGraphics(htmlContent);
   validateSectionHeadingSystems(htmlContent);
   validateDividerOrnaments(htmlContent);
+  validateNativeImageUsage(htmlContent);
+  validateContentTemplateStructure(htmlContent);
   validateFreeModeDesign(htmlContent);
 }
 
@@ -865,6 +1228,7 @@ async function main() {
     : baseName;
 
   console.log(`Preset: ${preset.id} (${preset.name})`);
+  console.log(`Content template: ${getArticleContentTemplate(htmlContent)}`);
   if (hadOuterDocument) {
     console.log("Sanitized input: extracted the <article> fragment from a full HTML document.");
   }
@@ -897,6 +1261,16 @@ async function main() {
         { encoding: "utf-8", timeout: 30000, cwd: SKILL_DIR }
       );
       console.log(pushResult);
+      const resultMatch = String(pushResult).match(/TIANPHOTO_PUSH_RESULT:(.+)$/m);
+      if (resultMatch) {
+        try {
+          const parsed = JSON.parse(resultMatch[1]);
+          console.log(
+            `[Tianphoto] Push summary: ${parsed.success ? "sent back to session" : "saved locally only"} ` +
+            `via ${parsed.method}.`
+          );
+        } catch (_err) {}
+      }
     } catch (pushErr) {
       // 推送失败不影响主流程，仅记录日志
       console.log("[Tianphoto] 自动推送可能失败，文件已保存到本地:", htmlOutPath);
