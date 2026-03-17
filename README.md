@@ -68,6 +68,24 @@ Tianphoto 走的是另一条路：
 
 ---
 
+## 📚 更新记录
+
+更新记录这次重新整理过了：
+
+- 完整版本历史在 [CHANGELOG.md](CHANGELOG.md)
+- 详细发布说明统一放到 [releases](releases)
+
+目前已整理好的详细版本说明：
+
+- [v2.0.0](releases/v2.0.0.md)
+- [v1.9.6](releases/v1.9.6.md)
+- [v1.9.5](releases/v1.9.5.md)
+- [v1.8.0](releases/v1.8.0.md)
+
+以后根目录只保留当前项目入口文件，历史发布说明都收进 `releases/`。
+
+---
+
 ## 🚀 快速开始
 
 ### 1. 安装
@@ -264,6 +282,7 @@ Tianphoto 现在是一套两层风格系统：
 
 ```text
 tianphoto/
+├── CHANGELOG.md
 ├── SKILL.md
 ├── README.md
 ├── version.json
@@ -285,7 +304,11 @@ tianphoto/
 │   ├── free-mode.md
 │   └── content-types.md
 ├── logos/
-└── release-v2.0.0.md
+└── releases/
+    ├── v1.8.0.md
+    ├── v1.9.5.md
+    ├── v1.9.6.md
+    └── v2.0.0.md
 ```
 
 ---
@@ -324,6 +347,11 @@ npm install -g puppeteer-core
 ```bash
 git -C ~/.claude/skills/tianphoto pull
 ```
+
+更新后可以直接查看：
+
+- [CHANGELOG.md](CHANGELOG.md)
+- [releases](releases)
 
 ---
 
