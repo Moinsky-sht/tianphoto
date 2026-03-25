@@ -1,129 +1,98 @@
 # 内容主题与模板识别规则
 
-2.1.0 之后，Tianphoto 不再只判断“适合哪个 preset”，而是先判断**内容模板**，再决定 family / preset。
+Tianphoto 先判断 `content-template`，再决定 family / preset / SVG grammar。
 
 识别顺序：
 
-1. 先判断内容属于哪个 `content-template`
-2. 再决定最适合的 `style family`
-3. 最后才落到具体 `preset`
+1. 判断内容属于哪个 `content-template`
+1. 选择最适合的 `style family`
+1. 选择该 family 内的 `preset`
+1. 确认 `svg-grammar -> hero-scene -> mark-kind`
 
-当前内置的内容模板有：
+## 内置模板
 
-- `event-notice` — 活动招募 / 通知 / 公告 / 报名页
-- `weekly-report` — 周报 / 复盘 / 项目进展 / 状态汇总
-- `release-brief` — 发布说明 / 功能上线 / 版本公告
-- `knowledge-article` — 教程 / 科普 / 研究 / 方法论
-- `case-recap` — 案例拆解 / 项目复盘 / 落地回顾
-
-AI 再根据文章文本自动识别内容主题，并据此选择最合适的排版预设。
-
-## 识别映射表
-
-| 主题 | 识别关键词 | 推荐预设（主） | 推荐预设（备） | 排版特点 |
-|------|-----------|---------------|---------------|---------|
-| 营销战报 | GMV、增长、转化率、ROI、环比、同比增长、大促、成交额、拉新 | `cobalt-ops` | `saffron-brief` | 大数字指标卡（wx-metric-grid）+ 对比卡片，数据突出 |
-| 公告通知 | 通知、公告、即日起、特此、生效、全体、告知、规定 | `slate-column` | `mono-ledger` | 简洁严肃，少装饰，以文字段落为主 |
-| 知识科普 | 原理、为什么、科学、研究、发现、机制、解释、实验 | `dawn-journal` | `meadow-report` | 图文穿插，列表拆解，引言卡片 |
-| 产品发布 | 发布、上线、新功能、升级、版本、更新、体验、全新 | `aurora-glass` | `nebula-frost` | hero 视觉强，功能点用 section-card 逐条展示 |
-| 人物故事 | 创始人、采访、经历、回忆、故事、人生、对话、成长 | `paper-museum` | `ink-editorial` | 杂志风排版，引言突出（wx-quote-card），时间线 |
-| 数据分析 | 数据、报告、趋势、同比、指标、统计、分析、洞察 | `metro-metrics` | `cyan-data` | 指标网格（wx-metric-grid）+ 时间线 + 对比网格 |
-| 教程指南 | 步骤、教程、如何、方法、指南、操作、配置、设置 | `mint-deck` | `ocean-brief` | 步骤编号 section-card + 清单列表 |
-| 品牌故事 | 品牌、理念、愿景、价值观、使命、文化、初心、坚持 | `pearl-board` | `velvet-luxe` | 高端留白，logo 突出，品牌横幅 |
+| Template | 适合内容 | 默认 mark-kind | Hero Scene 候选 | Inline Infographic | 组件重心 |
+| --- | --- | --- | --- | --- | --- |
+| `event-notice` | 活动招募 / 通知 / 公告 / 报名页 | `registration` | `paper-fold`, `ribbon-flow`, `museum-frame` | `path-map`, `process-track`，最多 1 个 | section 扫读、时间/资格/日程 |
+| `weekly-report` | 周报 / 项目进展 / 状态汇总 | `delivery` | `editorial-beam`, `signal-grid`, `paper-fold` | `evidence-stack`, `compare-grid`, `path-map`，最多 1 个 | metric / compare / risk |
+| `release-brief` | 发布说明 / 功能上线 / 版本公告 | `delivery` | `signal-grid`, `ribbon-flow`, `editorial-beam` | `compare-grid`, `node-network`, `structure-breakdown`，最多 1 个 | release points、能力对比 |
+| `knowledge-article` | 教程 / 科普 / 研究 / 方法论 | `perspective` | `editorial-beam`, `paper-fold`, `constellation-map` | `structure-breakdown`, `evidence-stack`, `path-map`，最多 1 个 | 阅读节奏、论点拆解 |
+| `case-recap` | 案例拆解 / 项目复盘 / 落地回顾 | `recap` | `constellation-map`, `museum-frame`, `editorial-beam` | `process-track`, `compare-grid`, `evidence-stack`，最多 1 个 | 过程、结果、复盘结构 |
 
 ## 模板与结构建议
 
 ### `event-notice`
 
 - 默认搭配：`data-page-tone="event-notice"` + `data-heading-system="index-led"`
-- 强调报名、时间、地点、日程、资格、奖项这类可扫描信息
-- 不使用 `wx-image-drop-zone`
-- 不允许无语义装饰图抢标题
+- 重点语义：报名、时间、地点、资格、奖项、日程
+- `wx-badge-art` 默认禁用
+- 允许最多 1 个真正有职责的 `wx-inline-graphic`
+- 章节徽记优先识别 `registration / schedule / qualification / awards`
 
 ### `weekly-report`
 
 - 优先出现 `wx-metric-grid` 或 `wx-compare-grid`
-- metric card 适合短句，不适合长段解释
 - 更强调状态、完成项、风险、下周计划
+- 章节徽记优先识别 `delivery / risk / schedule / recap`
 
 ### `release-brief`
 
 - hero 可以更强，但不能只剩一个 hero
 - 至少需要 2 个 section 或 1 个数据块
-- 适合版本亮点、更新说明、能力对比
+- 章节徽记优先识别 `delivery / task / method / growth`
 
 ### `knowledge-article`
 
 - 阅读节奏优先
 - 更适合 `wx-intro-card`、`wx-quote-card`、多段 `wx-section-card`
-- 默认不鼓励拖拽占位图和无职责装饰图
+- 阅读型页面默认可以没有 `wx-inline-graphic`
+- 如果用了 `wx-inline-graphic`，它必须能独立解释结构
 
 ### `case-recap`
 
 - 至少应该有 `timeline / compare / summary` 中的一类结构
 - 强调“过程、结果、经验、下一步”
-- 不应只是一串普通正文段落
+- 章节徽记优先识别 `recap / delivery / risk / growth`
 
 ## 识别规则
 
-1. **关键词匹配**：扫描文章全文，统计各主题关键词的出现频次
-2. **权重计算**：标题中出现的关键词权重 ×3，首段 ×2，正文 ×1
-3. **优先级**：如果多个主题得分接近，优先选择排版组件更丰富的主题
-4. **兜底**：如果无法明确识别，默认使用"知识科普"主题（`dawn-journal`）
+1. 关键词匹配：标题 ×3，导语 ×2，正文 ×1
+1. caption 优先级高于 h2，h2 高于正文
+1. 如果无法明确识别，兜底为 `knowledge-article`
 
-## 各主题推荐组件
+## 模板级组件建议
 
-### 营销战报
-- `wx-hero-card` — 核心战绩标题
-- `wx-metric-grid` + `wx-metric-card` — 关键数据指标（GMV/增长率/ROI）
-- `wx-compare-grid` — 同比/环比对比
-- `wx-summary-card` — 总结展望
+### `event-notice`
 
-### 公告通知
-- `wx-hero-card` — 通知标题（简洁，少装饰）
-- `wx-section-card` — 各条通知内容
-- `wx-quote-card` — 重要条款引述
-- 不使用 metric/compare/timeline 等花哨组件
+- `wx-hero-card`：通知标题
+- `wx-section-card`：报名 / 日程 / 资格 / 奖项
+- `wx-inline-graphic`：只在说明流程或路径时使用
 
-### 知识科普
-- `wx-hero-card` — 主题标题 + 导读
-- `wx-intro-card` — 背景知识
-- `wx-section-card` — 知识点逐条拆解（配图标）
-- `wx-quote-card` — 研究引述
-- `wx-inline-graphic` — 概念示意图
-- `wx-summary-card` — 总结
+### `weekly-report`
 
-### 产品发布
-- `wx-hero-card` — 产品名称 + slogan（强视觉 mesh 背景）
-- `wx-section-card` — 每个新功能一个卡片
-- `wx-metric-grid` — 性能指标
-- `wx-badge-art` — 版本号/标志
+- `wx-hero-card`：本周结论
+- `wx-metric-grid`：核心指标
+- `wx-compare-grid`：本周 / 下周、计划 / 实际
+- `wx-section-card`：进展 / 风险 / 下一步
 
-### 人物故事
-- `wx-hero-card` — 人物名 + 标签
-- `wx-quote-card` — 关键语录（多处使用）
-- `wx-timeline-card` — 人生/职业经历时间线
-- `wx-section-card` — 故事章节
-- `wx-inline-graphic` — 装饰图
+### `release-brief`
 
-### 数据分析
-- `wx-hero-card` — 报告标题
-- `wx-metric-grid` — 核心指标汇总
-- `wx-section-card` — 各维度分析
-- `wx-compare-grid` — 数据对比
-- `wx-timeline-card` — 趋势时间线
-- `wx-summary-card` — 结论
+- `wx-hero-card`：产品名称 + release statement
+- `wx-section-card`：功能点逐条展开
+- `wx-metric-grid`：性能或收益
+- `wx-inline-graphic`：结构拆解 / 节点关系 / 对比
 
-### 教程指南
-- `wx-hero-card` — 教程标题 + 简介
-- `wx-section-card` — 每个步骤一个卡片（使用 wx-section-index 编号）
-- `wx-quote-card` — 注意事项/提示
-- `wx-summary-card` — 总结清单
+### `knowledge-article`
 
-### 品牌故事
-- `phone-brand-banner` — 品牌 logo 横幅（如有）
-- `wx-hero-card` — 品牌名称 + 理念
-- `wx-quote-card` — 创始人语录
-- `wx-section-card` — 品牌历程/价值观章节
-- `wx-timeline-card` — 品牌大事记
-- `wx-badge-art` — 品牌印章
+- `wx-hero-card`：主题标题 + 导读
+- `wx-intro-card`：前情或背景
+- `wx-section-card`：知识点逐条拆解
+- `wx-quote-card`：观点或研究引述
+- `wx-inline-graphic`：只在结构说明有价值时使用
+
+### `case-recap`
+
+- `wx-hero-card`：案例标题
+- `wx-timeline-card`：过程路径
+- `wx-section-card`：问题 / 动作 / 结果 / 复盘
+- `wx-summary-card`：经验与下一步

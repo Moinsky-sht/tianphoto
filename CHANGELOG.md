@@ -7,6 +7,43 @@ Tianphoto 的版本更新记录。
 - 这里保留完整的版本历史摘要
 - 更详细的发布说明收纳在 [releases](releases)
 
+## v2.4.0
+
+- 新增 family 级 SVG 语法层，正式引入 `data-svg-grammar / data-hero-scene / data-mark-kind`
+- `wx-hero-mesh` 改成受控 hero scene 机制，生成链会按 content-template + family 自动选择 scene
+- `wx-section-mark` 改为语义识别驱动，不再只是通用小图标；章节徽记会和标题语义做匹配
+- `wx-inline-graphic` 收口到受控信息图模板，`event-notice` 默认禁用 `wx-badge-art`
+- `/tp doctor` 新增 SVG 审校：重复徽记、mark-kind 冲突、通用 mesh、无职责信息图和复杂度过高等检查
+- family matrix 现在正式控制 SVG grammar：线条粗细、转角语言、填充策略、密度和几何倾向不再只停留在颜色层
+- Hero / Section Mark / Inline Infographic 都切到 slot-first 规则，模型默认不再自由手写大段抽象 SVG
+- Doctor 会额外检查“同形换色假装不同”的章节徽记，以及 scene / infographic 是否真正来自注册表
+
+详细说明：
+[v2.4.0 release notes](releases/v2.4.0.md)
+
+## v2.3.0
+
+- 插块系统切到模板注册表，`section / summary / quote / metric / compare / timeline / image` 不再继续堆字符串模板
+- 编辑器加入强约束输入链：文本粘贴默认净化为纯文本，回车生成标准块，空内容区域保持可点击可继续编辑
+- 图片继续保持页面内直接缩放，尺寸状态会和保存 HTML 一起固化
+- 导出面板默认提供 `JPG（更轻，适合发布）` 和 `PNG（更稳，适合精修）`
+- 长图切片加入安全切线扫描，优先避开图片、章节卡、摘要卡、引用卡和时间线条目
+- `/tp doctor` 新增模板注册表、双格式导出、深层标题包装、非语义 SVG 和脏 `div/br` 节点检查
+
+详细说明：
+[v2.3.0 release notes](releases/v2.3.0.md)
+
+## v2.2.0
+
+- 建立 `src/design-system/css` 与 `src/editor` 源码层，`assets/article-theme.css` 与 `assets/editor-stable.js` 不再直接手改，而由构建脚本生成
+- 新增 `scripts/build-assets.js` 与 `scripts/lib/build-assets.js`，保持“内部模块化、外部仍输出单 HTML”的双态架构
+- 抽出共享 HTML 工具、内容模板规则和家族矩阵，`render-image.js` 与 `tp-doctor.js` 不再各自复制同一套底层逻辑
+- `/tp doctor` 升级为四层结果：`environment / structure / design / architecture_advice`
+- `editor.js` 与 `editor-stable.js` 收敛为同一套构建产物，避免双实现继续漂移
+
+详细说明：
+[v2.2.0 release notes](releases/v2.2.0.md)
+
 ## v2.1.1
 
 - 阅读型章节头重新收成两层：上层只放 `wx-section-index / wx-card-caption / wx-section-mark`，下层让 `h2` 单独占满主要宽度

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tianphoto"
+  short_description: "OpenClaw-first HTML article pages, especially with the official Feishu plugin"
+  default_prompt: "Use $tianphoto to turn this article into an editable mobile page. It works across AI IDEs, but is especially strong in OpenClaw with the official feishu-openclaw-plugin for Feishu docs, notices, recaps, and one-line long-image HTML workflows."

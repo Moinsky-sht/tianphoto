@@ -2,7 +2,7 @@
 
 > ✨ 把文章、公告、周报、品牌内容和知识稿，直接变成一份可编辑、可导出的移动端 HTML 页面。它不只适用于 Claude Code、Codex、Trae 等 AI IDE / agent 环境，也尤其适配装了飞书官方 `feishu-openclaw-plugin` 的 OpenClaw。
 
-**当前版本：`v2.1.1`**
+**当前版本：`v2.4.0`**
 
 Tianphoto 的核心不是“先做图”，而是先生成一份真正能工作的手机页面：
 
@@ -53,128 +53,39 @@ Tianphoto 不是“只能在 OpenClaw 里用”，但它确实是**特别适合 
 
 ---
 
-## 🆕 2.1.1 有什么变化
+## 🆕 2.4.0 有什么变化
 
-### 章节头回到“元信息一行，主标题一行”
+### SVG 正式进入“语义语法层”
 
-- 阅读型页面现在默认收成两层：
-  - 上层：`序号 / 小标题 / 语义徽记`
-  - 下层：`h2` 主标题
-- 大标题左右不再挂内容，不再被编号、caption 或图形挤压。
-- `wx-section-mark` 退成更轻的语义辅助，而不是按钮感的白底徽记。
+- 新增 `data-svg-grammar`、`data-hero-scene`、`data-mark-kind` 三层稳定元数据。
+- `wx-hero-mesh` 不再默认回到“渐变矩形 + 两三个圆”的通用 mesh，而是命中受控 hero scene。
+- `wx-section-mark` 不再只是通用小图标，而是根据章节语义映射到明确的 `mark-kind`。
+- 生成链改成 `content-template -> svg-grammar -> hero-scene -> mark-kind`，默认不再鼓励模型自由手写大段抽象 SVG。
 
-### 并列模块默认更稳
+### 15 个家族的 SVG 差异真正拉开
 
-- `wx-metric-card`、`wx-compare-card`、时间线和摘要卡的小标题继续降了一档字号。
-- 两列卡片不再默认沿用 section 级标题气势，移动端扫读会更自然。
+- 阅读优先家族走编辑式、细线、低密度图形。
+- 产品家族走 signal / panel / node / grid。
+- 表达型家族走 ribbon / frame / block / orbit。
+- 差异不再只靠颜色，而是同时拉开线条粗细、转角语言、填充策略、构图密度和几何倾向。
+- 现在即使把颜色拿掉，hero scene 和章节徽记也更容易看出是不同系统。
 
-### 编辑器终于有正常的撤销/重做
+### inline infographic 也被收进了受控体系
 
-- 新插入的结构组件现在可以稳定撤销、重做。
-- 组件入口也整理成了分类面板：
-  - `章节结构`
-  - `强调表达`
-  - `信息模块`
+- `wx-inline-graphic` 不再鼓励自由插抽象装饰。
+- 只允许受控的信息图类型，例如流程、节点网络、对比、路径、证据栈和结构拆解。
+- `event-notice` 默认禁用 `wx-badge-art`。
+- `event-notice / weekly-report / release-brief / knowledge-article / case-recap` 默认最多只保留 1 个真正有职责的 `wx-inline-graphic`。
 
-### `/tp doctor` 会拦这类审美退化
+### `/tp doctor` 现在会审 SVG 语义
 
-- 现在会额外提示：
-  - 章节元信息是否跑到 `h2` 后面
-  - 并列卡片标题是否过长
-  - metric 标题是否不适合小卡片
-
----
-
-## 🆕 2.1.0 有什么变化
-
-### 内容模板层上线
-
-- 页面现在不只落到 `preset + family`，还会自动识别成：
-  - `event-notice`
-  - `weekly-report`
-  - `release-brief`
-  - `knowledge-article`
-  - `case-recap`
-- 这层模板会继续约束页面结构、组件节奏和编辑建议，不再只是“选个皮肤”。
-
-### `/tp doctor` 升级成设计审校器
-
-- 除了环境和版本，它现在还会检查：
-  - OpenClaw CLI 是否存在
-  - `feishu-openclaw-plugin` 相关能力是否可见
-  - 页面属于什么内容模板
-  - 章节图形是不是超量
-  - 阅读型页面是否误用了拖拽占位或过重装饰
-  - metric card 是否写得太长，不适合手机扫描
-
-### 编辑器更像页面搭建器
-
-- 底部编辑栏新增 5 个高频组件入口：
-  - `章节`
-  - `引语`
-  - `指标`
-  - `对比`
-  - `时间线`
-- 适合在浏览器里直接把一篇材料继续搭成完整页面，而不是只做文字微调。
-
-### 回传状态更清晰
-
-- 生成后会明确区分：
-  - 已回传到当前会话
-  - 只保存在本地
-- 更适合 OpenClaw / 飞书这类需要把 HTML 继续发回去的工作流。
-
----
-
-## 🆕 2.0.0 有什么变化
-
-### 标题系统重做
-
-- 章节标题重新拿回主要宽度。
-- 图标与编号退为强调件，而不是去横向挤压标题正文。
-- `index-led`、`dual`、`icon-led`、`plaque` 四套 heading system 的职责更清晰。
-
-### 风格系统升级
-
-- `37` 套 preset、`15` 个风格家族真正拉开。
-- 差异不再只靠配色，而是进入：
-  - 标题框架
-  - 卡片秩序
-  - caption 语法
-  - SVG 笔触
-  - 页面节奏
-
-### 结构校验更严
-
-- 会拦截无语义 `+` 占位 SVG。
-- 会检查章节编号是否连续。
-- 不再把 summary / quote 这类信息卡误判成必须带章节头。
-
-### HTML 迭代流固定
-
-- 默认继续输出到桌面的 `tianphoto-iterations`
-- 每次带时间戳
-- 更适合连续回看每一轮页面迭代
-
----
-
-## 📚 更新记录
-
-更新记录这次重新整理过了：
-
-- 完整版本历史在 [CHANGELOG.md](CHANGELOG.md)
-- 详细发布说明统一放到 [releases](releases)
-
-目前已整理好的详细版本说明：
-
-- [v2.1.1](releases/v2.1.1.md)
-- [v2.1.0](releases/v2.1.0.md)
-- [v2.0.0](releases/v2.0.0.md)
-- [v1.9.6](releases/v1.9.6.md)
-- [v1.9.5](releases/v1.9.5.md)
-- [v1.8.0](releases/v1.8.0.md)
-
-以后根目录只保留当前项目入口文件，历史发布说明都收进 `releases/`。
+- 现在除了环境和结构，还会检查：
+  - `mark-kind` 是否和章节语义冲突
+  - hero scene 是否还停留在通用 mesh
+  - 是否重复使用同一个空洞图形只换颜色
+  - inline infographic 是否缺少受控 kind
+  - section mark / infographic 是否复杂度过高
+  - scene / infographic 是否真的来自注册表，而不是临时拼出来的自由 SVG
 
 ---
 
@@ -379,13 +290,20 @@ tianphoto/
 ├── SKILL.md
 ├── README.md
 ├── version.json
+├── src/
+│   ├── design-system/
+│   │   └── css/
+│   └── editor/
 ├── assets/
 │   ├── article-theme.css
 │   ├── free-base.css
 │   ├── editor-stable.js
+│   ├── editor.js
 │   ├── html2canvas.min.js
 │   └── presets.json
 ├── scripts/
+│   ├── build-assets.js
+│   ├── lib/
 │   ├── render-image.js
 │   ├── push-to-session.js
 │   ├── fetch-content.js
@@ -418,6 +336,11 @@ tianphoto/
 npm install -g puppeteer-core
 ```
 
+说明：
+
+- `2.2.0` 的源码模块化和构建层只依赖本地 Node
+- 不需要额外安装 webpack、vite、rollup 这类前端打包工具
+
 ---
 
 ## ✅ 使用建议
@@ -445,6 +368,16 @@ git -C ~/.claude/skills/tianphoto pull
 
 - [CHANGELOG.md](CHANGELOG.md)
 - [releases](releases)
+
+---
+
+## 📚 更新记录
+
+README 首页只保留当前最新版提示，历史更新统一放到这些文件里：
+
+- 最新版本说明：[v2.2.0](releases/v2.2.0.md)
+- 完整版本历史：[CHANGELOG.md](CHANGELOG.md)
+- 全部发布说明：[releases](releases)
 
 ---
 

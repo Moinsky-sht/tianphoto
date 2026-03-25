@@ -10,7 +10,7 @@ description: |
   - 使用 /tp 指令或提到 tianphoto
   关键词：图文生成、长图、公众号、排版、海报、OpenClaw、飞书、/tp、tianphoto
   输入：文章文字或 URL
-  输出：可编辑的 HTML 网页 + 可选 PNG 切片
+输出：可编辑的 HTML 网页 + 可选 JPG / PNG 导出
 user_invocable: true
 keywords:
   - tianphoto
@@ -25,7 +25,7 @@ keywords:
 
 # Tianphoto — OpenClaw 优先的智能图文生成工作室
 
-将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，一键导出 PNG 切片（适合公众号上传）。它不只适用于 Claude Code、Codex、Trae 等 AI IDE / agent 环境，也特别适配小龙虾 OpenClaw；当 OpenClaw 安装了飞书官方 `feishu-openclaw-plugin` 之后，Tianphoto 可以更自然地承接飞书在线文档、通知和周报内容，并一句话生成长图 HTML 再回传到当前会话。
+将文章内容转化为**精美的、可编辑的自包含 HTML 网页**，可直接在浏览器中阅读、编辑文字、插入图片，并按需导出 JPG / PNG（适合公众号上传或精修存档）。它不只适用于 Claude Code、Codex、Trae 等 AI IDE / agent 环境，也特别适配小龙虾 OpenClaw；当 OpenClaw 安装了飞书官方 `feishu-openclaw-plugin` 之后，Tianphoto 可以更自然地承接飞书在线文档、通知和周报内容，并一句话生成长图 HTML 再回传到当前会话。
 
 ## 核心理念
 
@@ -33,8 +33,9 @@ keywords:
 - 在浏览器中直接查看效果
 - 点击文字即可编辑
 - 拖拽/粘贴图片
+- 文本粘贴自动净化，回车自动生成干净段落
 - 点击底部"保存"按钮（或 Cmd+S）保存修改后的网页
-- 点击"导出"按钮生成 PNG 切片
+- 点击"导出"按钮生成 JPG / PNG（支持安全切片）
 
 **宿主适配上，Tianphoto 是通用的，但不是平均分配的。** 它可以运行在多种 AI IDE / agent 环境中；不过如果你在 OpenClaw 里使用，尤其是已经安装飞书官方 `feishu-openclaw-plugin` 时，它的优势会更明显: 可以读取飞书在线文档等内容源，也可以直接用一句话把飞书里的材料做成长图 HTML，并把结果继续带回当前会话传播、修改和复用。
 
@@ -42,7 +43,7 @@ keywords:
 
 约定：下文中的 `$SKILL_DIR` 表示**当前正在使用的 `tianphoto` 技能根目录**。不要把路径硬编码成 `~/.claude` 或其他固定目录，始终以当前加载的 skill 目录为准。
 
-1. 用户直接给文章文字或 URL 时，先判断内容模式，再判断 UI 模式，再识别内容模板，再选风格家族和预设，最后生成 `<article>` 片段。
+1. 用户直接给文章文字或 URL 时，先判断内容模式，再判断 UI 模式，再识别内容模板，再选风格家族和预设，再决定 SVG composition（位置 / 强度 / quietness），最后生成 `<article>` 片段。
 2. 把片段保存为临时 HTML 后，调用 `node $SKILL_DIR/scripts/render-image.js ...` 输出桌面网页。
 3. 如果用户要品牌横幅，把 logo 放到 `$SKILL_DIR/logos/brand-logo.png`，再用 `/tp logo title 名字` 和 `/tp logo subtitle 副标题` 写入本地配置。
 4. 如果用户输入 `/tp ui rule`、`/tp ui free 2` 或 `/tp doctor`，优先处理这些快速指令，不要开始生成。
@@ -75,8 +76,10 @@ keywords:
 - 是否有危险的 3 列以上网格
 - 当前页面属于哪个 `content-template`
 - 章节图形是否超量、编号是否断档
+- 图形是否放错位置、是否抢标题、是否穿越正文主航道
 - 阅读型页面是否误用了 `wx-image-drop-zone`
 - metric card 是否过长，不适合移动端扫描
+- free 模式是否把大 SVG 放进正文中段，或出现多个无关 SVG 容器
 
 ### `/tp logo on`
 启用 Logo 功能。提示用户将 Logo 图片放到以下位置：
@@ -257,6 +260,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 这不是“乱做”，而是“底盘固定、设计自由”
 - **默认采用 helpers-first 起手**：优先使用 `tp-free-*` 基础组件搭骨架，再用自定义 class 做增强
 - **默认采用 variables-first 配色**：优先使用 preset CSS 变量，不要大量硬编码主题色
+- 显著 SVG 只能留在 hero / divider / 独立说明区，不能漂进正文主航道
 
 ### Step 2: 识别内容模板 → 选风格家族 → 选预设
 
@@ -267,14 +271,21 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 1. 这篇内容属于什么内容模板 / 主题 / 阅读气质
 2. 最适合哪个 `style family`
 3. 该 family 里哪一个 `preset` 最合适
-4. 最后补一句视觉执行方向
+4. 再确认 `svg-grammar`
+5. 再确认 `svg composition`
+6. 再确认 `hero-scene`
+7. 最后给每个 section 分配 `mark-kind`，并判断是否真的需要 `inline infographic`，再补一句视觉执行方向
 
 额外要求：
 
 - 不要只因为喜欢某个颜色就选 preset
 - `rule` 模式下，preset 代表**版式系统 + 色彩气质 + 组件习惯**
+- `rule` 模式下不再鼓励“模型自由发挥 SVG”，而是进入 `grammar slot`
 - `free` 模式下，preset 代表**色盘 + 气质锚点 + 视觉语气**，但 family 仍然决定构图方向
 - 同一个 skin 下的 preset，也必须因为 family / archetype 不同而长得不一样
+- Hero scene 的优先级是：`content-template` → `family` → `archetype` 微调
+- Section mark 的优先级是：`wx-card-caption` → `h2` → `section body`
+- `wx-inline-graphic` 只有在结构解释有收益时才出现，不再作为默认装饰块
 
 告诉用户选了什么 family、什么 preset，以及理由。
 并且在开始生成前，必须再为这篇内容补一句**明确的视觉方向描述**，例如：
@@ -350,7 +361,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 你生成的 HTML 必须严格遵循以下结构：
 
 ```html
-<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}">
+<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}" data-content-template="{content-template}" data-svg-grammar="{svg-grammar}" data-hero-scene="{hero-scene}">
   <div class="wx-article-shell">
     <!-- 所有内容组件依次排列在这里 -->
   </div>
@@ -403,25 +414,20 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 
 ```html
 <div class="wx-hero-card">
-  <div class="wx-hero-mesh">
-    <svg viewBox="0 0 1080 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="hg" x1="0" y1="0" x2="1080" y2="180">
-          <stop offset="0%" stop-color="var(--hero-grad-a)"/>
-          <stop offset="100%" stop-color="var(--hero-grad-b)"/>
-        </linearGradient>
-      </defs>
-      <rect width="1080" height="180" fill="url(#hg)"/>
-      <circle cx="200" cy="80" r="110" fill="var(--hero-fade)"/>
-      <circle cx="800" cy="50" r="70" fill="var(--hero-fade)"/>
-      <!-- 鼓励添加更多几何图形：线条、小圆点、矩形等 -->
-    </svg>
-  </div>
+  <div class="wx-hero-mesh" data-hero-scene="{hero-scene}"></div>
   <span class="wx-eyebrow">栏目标签</span>
-  <h1 style="font-size:36px;color:var(--accent-strong);">文章主标题</h1>
+  <h1 style="font-size:32px;color:var(--accent-strong);font-weight:900;">文章主标题</h1>
   <p class="wx-lead">副标题或一句话导读</p>
 </div>
 ```
+
+Hero 生成规则：
+- 长中文标题默认不要手动插入 `<br>`；优先让标题自然换行，除非是明确的海报式断句。
+- `h1` 必须优先占满可读宽度，不要做只占半列的 shrink-wrap 标题。
+- 标题过长时优先收字体和字距，不要靠强制断词制造“设计感”。
+- `wx-hero-mesh` 是 scene slot。模型负责选 `hero-scene`，不负责自由手写大段 SVG。
+- 允许的 hero scene 只有：`ribbon-flow / signal-grid / paper-fold / constellation-map / editorial-beam / museum-frame`
+- hero 只负责首页气质，不承担章节语义。
 
 #### 章节卡片模板（每个主要章节一个，内容不要堆叠）
 
@@ -430,14 +436,10 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
   <div class="wx-section-top">
     <div class="wx-section-heading">
       <span class="wx-section-index">01</span>
-      <div>
-        <div class="wx-card-caption">栏目标签</div>
-        <div class="wx-title-row">
-          <h2 style="font-size:22px;color:var(--accent-strong);font-weight:800;">章节标题</h2>
-          <span class="wx-section-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">...</svg>
-          </span>
-        </div>
+      <div class="wx-card-caption">栏目标签</div>
+      <span class="wx-section-mark" data-mark-kind="{mark-kind}" aria-hidden="true"></span>
+      <div class="wx-title-row">
+        <h2 style="font-size:22px;color:var(--accent-strong);font-weight:800;">章节标题</h2>
       </div>
     </div>
   </div>
@@ -453,6 +455,17 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 #### 章节标题系统（非常重要）
 
 同一页必须只选择一种主 `heading system`，不要在不同 `wx-section-card` 之间混用。
+
+章节头生成规则：
+- `序号 / 小标题 / 语义 SVG` 必须在同一条元信息线上。
+- `h2` 必须单独占下一行，左右不要再挂任何装饰物。
+- 每节只允许 1 个 `wx-section-mark`，而且必须命中语义域。
+- `wx-section-mark` 必须带 `data-mark-kind`，并和章节语义一致。
+- `wx-section-mark` 要辅助理解章节语义，不能抢过 `h2` 的视觉中心。
+- `wx-metric-card`、`wx-compare-card` 这种并列模块里的标题要主动比 `h2` 小一档，不要拿章节级标题尺寸直接塞进去。
+- 默认不要手写庞大、复杂、无语义的 inline SVG 装饰块。
+- `wx-section-mark` 是唯一正式章节图形接口；同一页相同语义可以复用，不同语义必须换图。
+- 章节语义域至少覆盖：`registration / organization / task / schedule / qualification / awards / growth / perspective / method / delivery / risk / recap`
 
 - `icon-led`
   适合 `field-atlas / aurora-drift / play-lab`
@@ -472,6 +485,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 阅读型页面默认使用 `wx-section-index + wx-card-caption + h2 + wx-section-mark`
 - 阅读型页面里，`wx-section-index`、`wx-card-caption`、`wx-section-mark` 必须在同一条水平信息线上，`h2` 独占下一行
 - `wx-section-mark` 是唯一正式的章节语义图形接口，但它必须是轻量辅助，不得做成厚边框、白底按钮感的大徽记
+- 先决定 `content-template`，再决定 `family grammar`，再决定 `composition`，再决定 `hero-scene / mark-kind`，最后判断是否真的需要 `inline infographic`
 - `event-notice` / 活动招募 / 公告通知默认使用 `data-page-tone="event-notice"` + `data-heading-system="index-led"`
 - 只有 `icon-led` / `dual` 才需要显式输出 `wx-section-icon`
 
@@ -481,7 +495,32 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 - 同一页里第一节是图标系统，第二节突然跳成编号系统
 - 所有 section 都复用同一个无含义 icon，只换颜色假装区分
 - 标题左右各挂一个 SVG，或者在标题下补一条没有信息职责的装饰轨道
+- 把 `hero-scene` 放进正文区，或让 `section-mark` 下沉到正文边上
+- 把 `divider` 插进连续正文中段，或让 `inline infographic` 变成跨段装饰路径
 - 继续输出 `wx-title-flank` / `wx-heading-ornament` / `wx-section-emblem` 这类旧过渡接口
+
+#### Inline Infographic 模板（仅在确有信息职责时使用）
+
+```html
+<div class="wx-inline-graphic" data-infographic-kind="{infographic-kind}"></div>
+```
+
+只允许：
+
+- `process-track`
+- `node-network`
+- `compare-grid`
+- `path-map`
+- `evidence-stack`
+- `structure-breakdown`
+
+生成规则：
+
+- 不要把 `wx-inline-graphic` 当作默认装饰块。
+- `event-notice / weekly-report / release-brief / knowledge-article / case-recap` 默认最多 1 个。
+- 阅读优先页面默认可以没有它。
+- 如果这块 SVG 不能独立解释结构，就不要输出。
+- `event-notice` 默认禁用 `wx-badge-art`。
 
 #### 指标网格模板
 
@@ -630,8 +669,8 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
    - h2 章节标题 20-26px，`color: var(--accent-strong)`，`font-weight: 800`
 
 3. **语义 SVG 是视觉灵魂** — 每篇文章至少包含：
-   - 1 个 `wx-hero-mesh` SVG 背景（渐变 + 几何图形，不少于 3 个图形元素）
-   - 每个带 `wx-section-top` 的 `wx-section-card` 必须服从统一的章节标题系统；章节图形默认用单个 `wx-section-mark` 点题，只有 `icon-led` / `dual` 才使用 `wx-section-icon`
+   - 1 个命中 `hero-scene` 的 `wx-hero-mesh` SVG 背景，不再默认自由手写通用 mesh
+   - 每个带 `wx-section-top` 的 `wx-section-card` 必须服从统一的章节标题系统；章节图形默认用单个带 `data-mark-kind` 的 `wx-section-mark` 点题，只有 `icon-led` / `dual` 才使用 `wx-section-icon`
    - 阅读型页面的 `wx-section-mark` 必须和编号、小标题处在同一信息层，并且保持轻、细、小；不能抢章节标题风头
    - 如确实需要章节转场，可使用 0-2 个 `wx-divider-ornament`，并按主题选择 `editorial-notch` / `soft-stars` / `chevron-band` / `fold-divider`
    - 如确实需要 `wx-inline-graphic` 或 `wx-badge-art`，它们必须帮助读者理解流程、时间、结构或证据，而不是单纯增加装饰感
@@ -713,7 +752,7 @@ curl -s --connect-timeout 3 https://raw.githubusercontent.com/Moinsky-sht/tianph
 **创意自由度（鼓励发挥，但在规范框架内）：**
 
 - **标题**：CSS 只设了 font-family 和 line-height，**h1/h2 的 font-size、颜色、装饰效果完全自由**。鼓励使用 inline style 或 `<style>` 块设计大号标题、渐变色文字、文字阴影等
-- **SVG**：鼓励**根据内容主题自行设计 SVG 图形**——几何图案、抽象装饰、图标插画等。不要只用内置 SVG，发挥创造力。自行设计的 SVG 应使用 `currentColor` 或 CSS 变量，确保与主题配色一致
+- **SVG**：在 `svg-grammar` 槽位内发挥，不要回到自由画大量抽象装饰路径。自行设计的 SVG 仍应使用 `currentColor` 或 CSS 变量，并优先服务语义和结构解释。
 - **`<style>` 块**：可以在 `<article>` 开头加 `<style>` 块设置该文章独有的样式（动画、渐变、伪元素装饰等）
 - **Hero 创意**：不限于"眉标+标题+描述"模板。可以做全幅渐变、大字排版、SVG 背景、几何构图、任何创意布局；`rule` 模式保留 `wx-hero-card` / `wx-hero-mesh`，`free` 模式则可以完全自定义 hero 结构
 - **整体风格**：每篇文章都应该有独特的视觉个性，展现设计品味
@@ -773,7 +812,7 @@ node $SKILL_DIR/scripts/render-image.js /tmp/article-v2.html --output ~/Desktop 
 - 支持拖拽/粘贴/选择图片插入
 - 底部工具栏：撤销/重做、加粗/斜体、列表/引用、插入图片
 - **保存**：点击"保存"按钮或 Cmd+S 下载编辑后的网页文件
-- **导出**：点击"导出"按钮生成 PNG 切片（按卡片/段落智能切分，所见即所得，适合公众号上传）
+- **导出**：点击"导出"按钮生成 JPG / PNG；默认推荐 JPG 发布，切片会优先避开图片、卡片和时间线项
 - **封面图**：导出时自动生成公众号头条封面图排在切片最前：
   - **2.35:1 头条封面**（公众号头条封面）— 含 hero 背景、Logo 和文章标题
 
@@ -797,7 +836,8 @@ node render-image.js <html-file> [--output dir] [--preset id] [--logo path] [--l
 ## 输出文件
 
 - `~/Desktop/tianphoto-iterations/{name}-{timestamp}-page.html` — 自包含可编辑网页（默认始终生成）
-- `{name}.png` 或 `{name}_01.png` ... — PNG 图片（仅 --png 时）
+- `{name}.png` 或 `{name}_01.png` ... — PNG 图片（仅 `--png` 时）
+- 浏览器内编辑导出默认同时提供 JPG / PNG 两条下载链路
 
 ## 37 套预设速查
 

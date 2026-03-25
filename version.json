@@ -1,11 +1,11 @@
 {
-  "version": "2.1.1",
+  "version": "2.5.0",
   "repo": "Moinsky-sht/tianphoto",
   "changelog": [
-    "修正：阅读型章节头改为“序号 / 小标题 / 语义徽记”同层，主标题独占下一行",
-    "修正：并列 metric / compare 卡片默认收紧标题字号，避免小模块被大字撑爆",
-    "增强：/tp doctor 新增章节元信息顺序与并列卡片标题长度检查",
-    "增强：编辑器补上分类组件面板与稳定的撤销 / 重做历史栈",
-    "文档：README、CHANGELOG、发布说明同步升级到 2.1.1 口径"
+    "SVG：新增 composition layer，正式约束 data-reading-priority / data-svg-role / data-scene-density / data-mark-prominence",
+    "排版：rule 模式会清理正文误入的 SVG，并把 hero / section mark / divider / infographic 收回到固定职责区",
+    "free：继续开放 helpers-first，但新增 hero / divider / 独立说明区护栏，不再允许正文主航道漂浮大 SVG",
+    "校验：/tp doctor 升级为语义 + 版式关系审校器，新增图形位置错误、噪声预算、首屏抢标题与 free 中段大图检查",
+    "文档：style families、free mode、release note 统一升级到 2.5.0 口径"
   ]
 }

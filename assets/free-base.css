@@ -59,6 +59,14 @@ article[data-ui-mode="free"] th {
 }
 
 article[data-ui-mode="free"] p,
+article[data-ui-mode="free"] li,
+article[data-ui-mode="free"] blockquote {
+  text-align: justify;
+  text-justify: inter-character;
+  hyphens: auto;
+}
+
+article[data-ui-mode="free"] p,
 article[data-ui-mode="free"] ul,
 article[data-ui-mode="free"] ol,
 article[data-ui-mode="free"] figure,
@@ -174,6 +182,55 @@ article[data-ui-mode="free"] .tp-free-hero-art {
   pointer-events: none;
 }
 
+article[data-ui-mode="free"] .tp-free-hero-art[data-svg-role="hero-scene"] {
+  inset: 0 0 auto auto;
+  width: 78%;
+  height: 72%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  opacity: 0.24;
+}
+
+article[data-ui-mode="free"] .tp-free-hero-art[data-svg-role="hero-scene"] svg {
+  width: 100%;
+  height: 100%;
+}
+
+article[data-ui-mode="free"][data-scene-density="quiet"] .tp-free-hero-art[data-svg-role="hero-scene"] {
+  height: 64%;
+  opacity: 0.18;
+}
+
+article[data-ui-mode="free"][data-reading-priority="balanced"] .tp-free-hero-art[data-svg-role="hero-scene"] {
+  opacity: 0.28;
+}
+
+article[data-ui-mode="free"] .tp-free-panel[data-svg-role="inline-infographic"],
+article[data-ui-mode="free"] .tp-free-note[data-svg-role="inline-infographic"],
+article[data-ui-mode="free"] .tp-free-quote[data-svg-role="inline-infographic"] {
+  display: grid;
+  gap: 10px;
+}
+
+article[data-ui-mode="free"] .tp-free-panel[data-svg-role="inline-infographic"] svg,
+article[data-ui-mode="free"] .tp-free-note[data-svg-role="inline-infographic"] svg,
+article[data-ui-mode="free"] .tp-free-quote[data-svg-role="inline-infographic"] svg {
+  width: min(220px, 100%);
+  max-width: 100%;
+  height: auto;
+  margin: 2px auto 0;
+  color: var(--accent-strong);
+  opacity: 0.72;
+  filter: grayscale(1) contrast(0.96);
+}
+
+article[data-ui-mode="free"][data-reading-priority="reading-first"] .tp-free-panel[data-svg-role="inline-infographic"] svg,
+article[data-ui-mode="free"][data-reading-priority="reading-first"] .tp-free-note[data-svg-role="inline-infographic"] svg,
+article[data-ui-mode="free"][data-reading-priority="reading-first"] .tp-free-quote[data-svg-role="inline-infographic"] svg {
+  opacity: 0.62;
+}
+
 article[data-ui-mode="free"] .tp-free-kicker {
   display: inline-flex;
   align-items: center;
@@ -234,6 +291,11 @@ article[data-ui-mode="free"] .tp-free-divider {
   background: linear-gradient(90deg, transparent, currentColor 48%, transparent);
   color: var(--accent-strong);
   opacity: 0.24;
+}
+
+article[data-ui-mode="free"] .tp-free-divider[data-svg-role="divider"] {
+  margin: 6px auto;
+  opacity: 0.2;
 }
 
 article[data-ui-mode="free"] .tp-free-table-wrap {

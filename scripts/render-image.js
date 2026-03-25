@@ -25,6 +25,14 @@ const os = require("os");
 const path = require("path");
 const { execSync } = require("child_process");
 const { loadSettings } = require("./settings");
+const htmlHelpers = require("./lib/html-helpers");
+const {
+  CONTENT_TEMPLATE_RULES,
+  CONTENT_TEMPLATE_PATTERNS: SHARED_CONTENT_TEMPLATE_PATTERNS,
+} = require("./lib/content-template-rules");
+const sharedFamilyMatrix = require("./lib/family-matrix");
+const svgGrammar = require("./lib/svg-grammar");
+const { ensureBundledAssets } = require("./lib/build-assets");
 
 const SKILL_DIR = path.resolve(__dirname, "..");
 const CSS_PATH = path.join(SKILL_DIR, "assets", "article-theme.css");
@@ -96,50 +104,31 @@ function parseBoolean(value) {
 }
 
 function stripDoctype(htmlContent) {
-  return htmlContent.replace(/<!doctype[^>]*>/gi, "").trim();
+  return htmlHelpers.stripDoctype(htmlContent);
 }
 
 function extractTagInnerHtml(htmlContent, tagName) {
-  const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
-  const match = htmlContent.match(pattern);
-  return match ? match[1].trim() : null;
+  return htmlHelpers.extractTagInnerHtml(htmlContent, tagName);
 }
 
 function extractFirstArticle(htmlContent) {
-  const match = htmlContent.match(/<article\b[\s\S]*?<\/article>/i);
-  return match ? match[0].trim() : null;
+  return htmlHelpers.extractFirstArticle(htmlContent);
 }
 
 function sanitizeArticleFragment(htmlContent) {
-  let sanitized = stripDoctype(htmlContent.replace(/^\uFEFF/, "").trim());
-  let hadOuterDocument = false;
-
-  if (/<(?:html|head|body)\b/i.test(sanitized)) {
-    hadOuterDocument = true;
-    sanitized = extractTagInnerHtml(sanitized, "body")
-      || extractTagInnerHtml(sanitized, "html")
-      || sanitized;
-    sanitized = stripDoctype(sanitized);
-  }
-
-  const articleHtml = extractFirstArticle(sanitized);
-  if (articleHtml) sanitized = articleHtml;
-
-  if (/<\/?(?:html|head|body)\b/i.test(sanitized)) {
+  const normalized = htmlHelpers.sanitizeArticleFragment(htmlContent);
+  if (/<\/?(?:html|head|body)\b/i.test(normalized.html)) {
     throw new Error(
       "Input HTML still contains document-level tags after sanitization. " +
       "Provide a single <article> fragment or a saved Tianphoto page."
     );
   }
-
-  const articleCount = (sanitized.match(/<article\b/gi) || []).length;
-  if (articleCount !== 1) {
-    throw new Error(`Input HTML must contain exactly one <article> root; found ${articleCount}.`);
+  if (!normalized.hasArticleRoot || normalized.articleCount !== 1) {
+    throw new Error(`Input HTML must contain exactly one <article> root; found ${normalized.articleCount}.`);
   }
-
   return {
-    html: sanitized,
-    hadOuterDocument,
+    html: normalized.html,
+    hadOuterDocument: normalized.hadOuterDocument,
   };
 }
 
@@ -182,43 +171,10 @@ function getArticleContentTemplate(htmlContent) {
 }
 
 function extractReadableText(htmlContent) {
-  return String(htmlContent || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+  return htmlHelpers.extractReadableText(htmlContent);
 }
 
-const CONTENT_TEMPLATE_PATTERNS = [
-  {
-    id: "event-notice",
-    patterns: ["招募", "报名", "活动", "地点", "时间", "日程", "通知", "公告", "参会", "报名群", "开场", "路演"],
-  },
-  {
-    id: "weekly-report",
-    patterns: ["周报", "本周", "下周", "完成", "进展", "风险", "里程碑", "复盘", "进行中", "计划"],
-  },
-  {
-    id: "release-brief",
-    patterns: ["发布", "上线", "更新", "升级", "版本", "新功能", "更新说明", "发布说明", "changelog", "release"],
-  },
-  {
-    id: "knowledge-article",
-    patterns: ["原理", "机制", "为什么", "教程", "指南", "研究", "解释", "方法", "知识", "学习"],
-  },
-  {
-    id: "case-recap",
-    patterns: ["案例", "项目", "复盘", "拆解", "实践", "经验", "落地", "结果", "过程", "客户"],
-  },
-];
+const CONTENT_TEMPLATE_PATTERNS = SHARED_CONTENT_TEMPLATE_PATTERNS;
 
 function scoreTemplatePatterns(text, patterns) {
   return patterns.reduce((score, token) => {
@@ -243,9 +199,9 @@ function detectContentTemplate(htmlContent, preset) {
   let bestScore = 0;
 
   CONTENT_TEMPLATE_PATTERNS.forEach((entry) => {
-    const score = scoreTemplatePatterns(titleText, entry.patterns) * 3
-      + scoreTemplatePatterns(leadText, entry.patterns) * 2
-      + scoreTemplatePatterns(fullText, entry.patterns);
+    const score = scoreTemplatePatterns(titleText, entry.tokens) * 3
+      + scoreTemplatePatterns(leadText, entry.tokens) * 2
+      + scoreTemplatePatterns(fullText, entry.tokens);
     if (score > bestScore) {
       bestScore = score;
       bestId = entry.id;
@@ -258,51 +214,16 @@ function detectContentTemplate(htmlContent, preset) {
   return "case-recap";
 }
 
-const READING_PRIORITY_FAMILIES = new Set([
-  "swiss-journal",
-  "ledger-spec",
-  "archive-paper",
-  "field-atlas",
-  "brief-bulletin",
-  "skyline-pane",
-]);
+const READING_PRIORITY_FAMILIES = sharedFamilyMatrix.READING_PRIORITY_FAMILIES;
+const PRODUCT_FAMILIES = sharedFamilyMatrix.PRODUCT_FAMILIES;
+const EXPRESSIVE_FAMILIES = sharedFamilyMatrix.EXPRESSIVE_FAMILIES;
+const FAMILY_HEADING_SYSTEMS = sharedFamilyMatrix.FAMILY_HEADING_SYSTEMS;
+const FAMILY_VISUAL_SYSTEMS = sharedFamilyMatrix.FAMILY_VISUAL_SYSTEMS;
 
-const PRODUCT_FAMILIES = new Set([
-  "ops-console",
-  "studio-ribbon",
-  "neon-signal",
-]);
-
-const EXPRESSIVE_FAMILIES = new Set([
-  "poster-brutal",
-  "play-lab",
-  "deck-story",
-  "salon-luxe",
-  "night-gallery",
-  "aurora-drift",
-]);
-
-const FAMILY_HEADING_SYSTEMS = {
-  "swiss-journal": "index-led",
-  "field-atlas": "icon-led",
-  "ledger-spec": "index-led",
-  "archive-paper": "plaque",
-  "aurora-drift": "icon-led",
-  "skyline-pane": "index-led",
-  "ops-console": "dual",
-  "brief-bulletin": "index-led",
-  "deck-story": "plaque",
-  "salon-luxe": "plaque",
-  "night-gallery": "plaque",
-  "neon-signal": "dual",
-  "poster-brutal": "index-led",
-  "play-lab": "icon-led",
-  "studio-ribbon": "plaque",
-};
-
-function getRecommendedHeadingSystem(preset, htmlContent = "") {
-  if (getArticlePageTone(htmlContent) === "event-notice") {
-    return "index-led";
+function getRecommendedHeadingSystem(preset, htmlContent = "", contentTemplate = "") {
+  const pageTone = getArticlePageTone(htmlContent);
+  if (pageTone === "event-notice" || contentTemplate === "event-notice") {
+    return CONTENT_TEMPLATE_RULES["event-notice"]?.preferredHeadingSystem || "index-led";
   }
   return FAMILY_HEADING_SYSTEMS[preset?.family] || "icon-led";
 }
@@ -339,15 +260,392 @@ function upsertClassTokens(attrs, tokens, replaceMatchers = []) {
   return `${attrs}${classAttr}`;
 }
 
+function upsertDataAttrOnTag(tagHtml, attrName, value) {
+  if (!tagHtml) return tagHtml;
+  if (value === null || value === undefined || value === "") return tagHtml;
+  return tagHtml.replace(/<([a-z0-9-]+)\b([^>]*)>/i, (_match, tagName, attrs) => {
+    return `<${tagName}${upsertAttribute(attrs, attrName, value)}>`;
+  });
+}
+
+function replaceFirstExact(htmlContent, target, replacement) {
+  const index = htmlContent.indexOf(target);
+  if (index === -1) return htmlContent;
+  return htmlContent.slice(0, index) + replacement + htmlContent.slice(index + target.length);
+}
+
+function getArticleSvgGrammar(htmlContent) {
+  const match = htmlContent.match(/data-svg-grammar=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleHeroScene(htmlContent) {
+  const match = htmlContent.match(/data-hero-scene=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleReadingPriority(htmlContent) {
+  const match = htmlContent.match(/data-reading-priority=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleSceneDensity(htmlContent) {
+  const match = htmlContent.match(/data-scene-density=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleMarkProminence(htmlContent) {
+  const match = htmlContent.match(/data-mark-prominence=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleHeroAnchor(htmlContent) {
+  const match = htmlContent.match(/data-hero-anchor=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleMarkPlacement(htmlContent) {
+  const match = htmlContent.match(/data-mark-placement=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleGraphicQuietness(htmlContent) {
+  const match = htmlContent.match(/data-graphic-quietness=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleTitleSafe(htmlContent) {
+  const match = htmlContent.match(/data-title-safe=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleFrameBudget(htmlContent) {
+  const match = htmlContent.match(/data-frame-budget=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getArticleSvgNoiseBudget(htmlContent) {
+  const match = htmlContent.match(/data-svg-noise-budget=(['"])([^'"]+)\1/i);
+  return match ? match[2] : null;
+}
+
+function getCompositionProfileFromPreset(preset, htmlContent = "") {
+  const family = preset?.family || getArticleFamily(htmlContent);
+  return svgGrammar.getCompositionProfile(family);
+}
+
+function stripTags(value) {
+  return String(value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function stashMatches(htmlContent, regex, label) {
+  const stash = [];
+  const html = htmlContent.replace(regex, (match) => {
+    const token = `__TP_${label}_${stash.length}__`;
+    stash.push(match);
+    return token;
+  });
+  return { html, stash };
+}
+
+function restoreStashedMatches(htmlContent, label, stash) {
+  let nextHtml = htmlContent;
+  stash.forEach((match, index) => {
+    nextHtml = nextHtml.replace(`__TP_${label}_${index}__`, match);
+  });
+  return nextHtml;
+}
+
+function stripStandaloneSvgMarkup(htmlContent, protectedPatterns = []) {
+  let working = htmlContent;
+  const stashes = [];
+
+  protectedPatterns.forEach((pattern, index) => {
+    const label = `SVG_PROTECT_${index}`;
+    const result = stashMatches(working, pattern, label);
+    stashes.push({ label, stash: result.stash });
+    working = result.html;
+  });
+
+  working = working.replace(/<svg\b[\s\S]*?<\/svg>/gi, "");
+
+  for (let i = stashes.length - 1; i >= 0; i--) {
+    working = restoreStashedMatches(working, stashes[i].label, stashes[i].stash);
+  }
+
+  return working;
+}
+
+function countTagInstances(htmlContent, tagName) {
+  return (String(htmlContent || "").match(new RegExp(`<${tagName}\\b`, "gi")) || []).length;
+}
+
+function countTextClusterTags(htmlContent) {
+  return (String(htmlContent || "").match(/<(?:p|ul|ol|blockquote|table|figure)\b/gi) || []).length;
+}
+
+function looksLikeExplanatoryZone(text) {
+  return /方法|流程|步骤|对比|路径|结构|框架|总结|复盘|说明|依据|方法论|method|process|workflow|compare|path|structure|summary|recap|explain|evidence/i.test(text || "");
+}
+
+function canPromoteFreeBlockToInfographic(blockHtml) {
+  const svgCount = countTagInstances(blockHtml, "svg");
+  const paragraphCount = countTagInstances(blockHtml, "p");
+  const readableText = stripTags(blockHtml);
+  return svgCount === 1
+    && paragraphCount <= 1
+    && countTextClusterTags(blockHtml) <= 2
+    && readableText.length <= 220
+    && looksLikeExplanatoryZone(readableText);
+}
+
+function annotateFirstSvgRole(blockHtml, svgRole, extraAttrs = {}) {
+  return blockHtml.replace(/<svg\b([^>]*)>/i, (_match, attrs) => {
+    let nextAttrs = upsertAttribute(attrs, "data-svg-role", svgRole);
+    Object.entries(extraAttrs).forEach(([name, value]) => {
+      nextAttrs = upsertAttribute(nextAttrs, name, value);
+    });
+    return `<svg${nextAttrs}>`;
+  });
+}
+
+function ensureHeroScene(htmlContent, preset) {
+  const family = preset?.family || getArticleFamily(htmlContent);
+  const contentTemplate = getArticleContentTemplate(htmlContent) || detectContentTemplate(htmlContent, preset);
+  const composition = getCompositionProfileFromPreset(preset, htmlContent);
+  const heroScene = getArticleHeroScene(htmlContent) || svgGrammar.chooseHeroScene({
+    contentTemplate,
+    family,
+    archetype: preset?.archetype || getArticleArchetype(htmlContent),
+  });
+  const heroSvg = svgGrammar.buildHeroSceneSvg(heroScene, family);
+
+  let nextHtml = htmlContent.replace(
+    /<div([^>]*class=(['"])[^'"]*wx-hero-mesh[^'"]*\2[^>]*)>[\s\S]*?<\/div>/i,
+    (match, attrs) => {
+      let nextAttrs = upsertAttribute(attrs, "data-hero-scene", heroScene);
+      nextAttrs = upsertAttribute(nextAttrs, "data-svg-role", "hero-scene");
+      nextAttrs = upsertAttribute(nextAttrs, "data-scene-density", composition.scene_density);
+      nextAttrs = upsertAttribute(nextAttrs, "data-reading-priority", composition.reading_priority);
+      return `<div${nextAttrs}>${heroSvg}</div>`;
+    }
+  );
+
+  if (nextHtml === htmlContent) {
+    nextHtml = nextHtml.replace(
+      /<div([^>]*class=(['"])[^'"]*wx-hero-card[^'"]*\2[^>]*)>/i,
+      (match, attrs) => `<div${attrs}>\n  <div class="wx-hero-mesh" data-hero-scene="${heroScene}" data-svg-role="hero-scene" data-scene-density="${composition.scene_density}" data-reading-priority="${composition.reading_priority}">\n    ${heroSvg}\n  </div>`
+    );
+  }
+
+  return nextHtml;
+}
+
+function normalizeSectionMarks(htmlContent, preset) {
+  const family = preset?.family || getArticleFamily(htmlContent);
+  const contentTemplate = getArticleContentTemplate(htmlContent) || detectContentTemplate(htmlContent, preset);
+  const composition = getCompositionProfileFromPreset(preset, htmlContent);
+  const sectionBlocks = collectBalancedBlocksByClass(htmlContent, "wx-section-card", ["div", "section"]);
+  let nextHtml = htmlContent;
+
+  sectionBlocks.forEach((sectionBlock) => {
+    const headingBlock = collectBalancedBlocksByClass(sectionBlock, "wx-section-heading", ["div"])[0];
+    if (!headingBlock) return;
+
+    const captionText = stripTags(headingBlock.match(/<[^>]*class=(['"])[^'"]*wx-card-caption[^'"]*\1[^>]*>([\s\S]*?)<\/[^>]+>/i)?.[2] || "");
+    const titleText = stripTags(headingBlock.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)?.[1] || "");
+    const bodyBlock = collectBalancedBlocksByClass(sectionBlock, "wx-section-body", ["div"])[0] || sectionBlock;
+    const bodyText = stripTags(bodyBlock);
+    const markKind = svgGrammar.detectSectionMarkKind({
+      caption: captionText,
+      title: titleText,
+      body: bodyText,
+      contentTemplate,
+    });
+    const markMarkup = `<span class="wx-section-mark" data-mark-kind="${escapeHtml(markKind)}" data-svg-role="section-mark" data-mark-prominence="${composition.mark_prominence}" aria-hidden="true">${svgGrammar.createMarkSvg(markKind, family)}</span>`;
+
+    let nextHeading = headingBlock;
+    if (/\bwx-section-mark\b/.test(headingBlock)) {
+      nextHeading = headingBlock.replace(
+        /<span([^>]*class=(['"])[^'"]*wx-section-mark[^'"]*\2[^>]*)>[\s\S]*?<\/span>/i,
+        markMarkup
+      );
+    } else {
+      nextHeading = headingBlock.replace(
+        /<div([^>]*class=(['"])[^'"]*wx-title-row[^'"]*\2[^>]*)>/i,
+        `${markMarkup}\n      <div$1>`
+      );
+    }
+
+    const nextSection = sectionBlock.replace(headingBlock, nextHeading);
+    nextHtml = replaceFirstExact(nextHtml, sectionBlock, nextSection);
+  });
+
+  return nextHtml;
+}
+
+function normalizeInlineInfographics(htmlContent, preset) {
+  const family = preset?.family || getArticleFamily(htmlContent);
+  const contentTemplate = getArticleContentTemplate(htmlContent) || detectContentTemplate(htmlContent, preset);
+  const composition = getCompositionProfileFromPreset(preset, htmlContent);
+  const contentRule = CONTENT_TEMPLATE_RULES[contentTemplate] || CONTENT_TEMPLATE_RULES["knowledge-article"];
+  const pageTone = getArticlePageTone(htmlContent);
+  const readingMode = family && READING_PRIORITY_FAMILIES.has(family);
+
+  let nextHtml = htmlContent;
+  const badgeBlocks = nextHtml.match(/<div[^>]*class=(['"])[^'"]*wx-badge-art[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
+  if (pageTone === "event-notice" || contentRule.allowBadgeArt === false || readingMode) {
+    badgeBlocks.forEach((block) => {
+      nextHtml = replaceFirstExact(nextHtml, block, "");
+    });
+  }
+
+  const inlineBlocks = nextHtml.match(/<div[^>]*class=(['"])[^'"]*wx-inline-graphic[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
+  let remaining = typeof contentRule.max_inline_infographics === "number" ? contentRule.max_inline_infographics : 2;
+  if (readingMode) remaining = Math.min(remaining, 1);
+
+  inlineBlocks.forEach((block) => {
+    const containingSection = collectBalancedBlocksByClass(nextHtml, "wx-section-card", ["div", "section"]).find((sectionBlock) => sectionBlock.includes(block)) || "";
+    const headingBlock = collectBalancedBlocksByClass(containingSection, "wx-section-heading", ["div"])[0] || "";
+    const bodyBlock = collectBalancedBlocksByClass(containingSection, "wx-section-body", ["div"])[0] || "";
+    const semanticText = [
+      stripTags(headingBlock.match(/<[^>]*class=(['"])[^'"]*wx-card-caption[^'"]*\1[^>]*>([\s\S]*?)<\/[^>]+>/i)?.[2] || ""),
+      stripTags(headingBlock.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)?.[1] || ""),
+      stripTags(bodyBlock),
+    ].filter(Boolean).join(" ");
+    const explanatoryZone = looksLikeExplanatoryZone(semanticText);
+    const interruptsCopy = bodyBlock ? inlineGraphicInterruptsCopy(bodyBlock, block) : false;
+
+    if (remaining <= 0) {
+      nextHtml = replaceFirstExact(nextHtml, block, "");
+      return;
+    }
+    if ((readingMode && !explanatoryZone) || interruptsCopy) {
+      nextHtml = replaceFirstExact(nextHtml, block, "");
+      return;
+    }
+    const declaredKind = block.match(/data-infographic-kind=(['"])([^'"]+)\1/i)?.[2] || "";
+    const blockText = stripTags(block);
+    const inferredKind = svgGrammar.chooseInlineInfographicKind({
+      body: blockText,
+      contentTemplate,
+      family,
+    });
+    const approvedKinds = svgGrammar.getApprovedInfographicKinds(contentTemplate, family);
+    const infoKind = approvedKinds.includes(declaredKind) ? declaredKind : inferredKind;
+    const replacement = block.replace(
+      /<div([^>]*class=(['"])[^'"]*wx-inline-graphic[^'"]*\2[^>]*)>[\s\S]*?<\/div>/i,
+      `<div$1 data-infographic-kind="${escapeHtml(infoKind)}" data-svg-role="inline-infographic" data-reading-priority="${composition.reading_priority}" data-scene-density="${composition.scene_density}">${svgGrammar.buildInlineInfographicSvg(infoKind, family)}</div>`
+    );
+    nextHtml = replaceFirstExact(nextHtml, block, replacement);
+    remaining -= 1;
+  });
+
+  return nextHtml;
+}
+
+function normalizeRuleModeComposition(htmlContent) {
+  if (getArticleUiMode(htmlContent) === "free") return htmlContent;
+
+  let nextHtml = htmlContent;
+  const bodyBlocks = collectBalancedBlocksByClass(nextHtml, "wx-section-body", ["div"]);
+  bodyBlocks.forEach((bodyBlock) => {
+    let nextBody = bodyBlock.replace(
+      /<span[^>]*class=(['"])[^'"]*wx-section-mark[^'"]*\1[^>]*>[\s\S]*?<\/span>/gi,
+      ""
+    );
+    nextBody = nextBody.replace(
+      /<div[^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+      ""
+    );
+    nextBody = stripStandaloneSvgMarkup(nextBody, [
+      /<div[^>]*class=(['"])[^'"]*wx-inline-graphic[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+    ]);
+    nextHtml = replaceFirstExact(nextHtml, bodyBlock, nextBody);
+  });
+
+  return nextHtml;
+}
+
+function normalizeFreeModeComposition(htmlContent, preset) {
+  if (getArticleUiMode(htmlContent) !== "free") return htmlContent;
+
+  const composition = getCompositionProfileFromPreset(preset, htmlContent);
+  let nextHtml = htmlContent.replace(
+    /<div([^>]*class=(['"])[^'"]*tp-free-hero-art[^'"]*\2[^>]*)>/gi,
+    (_match, attrs) => {
+      let nextAttrs = upsertAttribute(attrs, "data-svg-role", "hero-scene");
+      nextAttrs = upsertAttribute(nextAttrs, "data-scene-density", composition.scene_density);
+      nextAttrs = upsertAttribute(nextAttrs, "data-reading-priority", composition.reading_priority);
+      return `<div${nextAttrs}>`;
+    }
+  );
+
+  nextHtml = nextHtml.replace(
+    /<div([^>]*class=(['"])[^'"]*tp-free-divider[^'"]*\2[^>]*)>/gi,
+    (_match, attrs) => `<div${upsertAttribute(attrs, "data-svg-role", "divider")}>`
+  );
+
+  const promotableBlocks = [
+    ...collectBalancedBlocksByClass(nextHtml, "tp-free-panel", ["section", "div", "aside"]),
+    ...collectBalancedBlocksByClass(nextHtml, "tp-free-note", ["section", "div", "aside"]),
+    ...collectBalancedBlocksByClass(nextHtml, "tp-free-quote", ["blockquote", "div"]),
+  ];
+
+  promotableBlocks.forEach((block) => {
+    if (!/<svg\b/i.test(block)) return;
+    if (/\bdata-svg-role=(['"])(hero-scene|divider)\1/i.test(block)) return;
+
+    if (canPromoteFreeBlockToInfographic(block)) {
+      let nextBlock = upsertDataAttrOnTag(block, "data-svg-role", "inline-infographic");
+      nextBlock = upsertDataAttrOnTag(nextBlock, "data-reading-priority", composition.reading_priority);
+      nextBlock = annotateFirstSvgRole(nextBlock, "inline-infographic", {
+        "data-reading-priority": composition.reading_priority,
+      });
+      nextHtml = replaceFirstExact(nextHtml, block, nextBlock);
+      return;
+    }
+
+    const strippedBlock = block.replace(/<svg\b[\s\S]*?<\/svg>/gi, "");
+    nextHtml = replaceFirstExact(nextHtml, block, strippedBlock);
+  });
+
+  nextHtml = stripStandaloneSvgMarkup(nextHtml, [
+    /<div[^>]*class=(['"])[^'"]*tp-free-hero-art[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+    /<div[^>]*class=(['"])[^'"]*tp-free-divider[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+    /<(?:section|div|aside|blockquote)[^>]*data-svg-role=(['"])inline-infographic\1[^>]*>[\s\S]*?<\/(?:section|div|aside|blockquote)>/gi,
+  ]);
+
+  return nextHtml;
+}
+
+function normalizeSemanticGraphics(htmlContent, preset) {
+  let nextHtml = ensureHeroScene(htmlContent, preset);
+  nextHtml = normalizeSectionMarks(nextHtml, preset);
+  nextHtml = normalizeInlineInfographics(nextHtml, preset);
+  nextHtml = pruneLowValueSvgBlocks(nextHtml, preset);
+  nextHtml = normalizeRuleModeComposition(nextHtml);
+  nextHtml = normalizeFreeModeComposition(nextHtml, preset);
+  return nextHtml;
+}
+
 function applyPresetMetadata(htmlContent, preset) {
   return htmlContent.replace(/<article\b([^>]*)>/i, (match, attrs) => {
     let nextAttrs = attrs;
     const existingHeadingSystem = getArticleHeadingSystem(htmlContent) || getArticleHeadingSystem(match);
     const detectedTemplate = detectContentTemplate(htmlContent, preset);
+    const family = preset.family || getArticleFamily(htmlContent);
+    const visualSystem = FAMILY_VISUAL_SYSTEMS[family] || svgGrammar.getFamilyVisualSystem(family);
+    const composition = svgGrammar.getCompositionProfile(family);
+    const heroScene = svgGrammar.chooseHeroScene({
+      contentTemplate: detectedTemplate,
+      family,
+      archetype: preset.archetype || getArticleArchetype(htmlContent),
+    });
     nextAttrs = upsertAttribute(nextAttrs, "data-preset", preset.id);
 
-    if (preset.family) {
-      nextAttrs = upsertAttribute(nextAttrs, "data-style-family", preset.family);
+    if (family) {
+      nextAttrs = upsertAttribute(nextAttrs, "data-style-family", family);
     }
     if (preset.archetype) {
       nextAttrs = upsertAttribute(nextAttrs, "data-style-archetype", preset.archetype);
@@ -355,13 +653,27 @@ function applyPresetMetadata(htmlContent, preset) {
     nextAttrs = upsertAttribute(
       nextAttrs,
       "data-heading-system",
-      existingHeadingSystem || getRecommendedHeadingSystem(preset, htmlContent)
+      existingHeadingSystem || getRecommendedHeadingSystem(preset, htmlContent, detectedTemplate)
     );
     nextAttrs = upsertAttribute(
       nextAttrs,
       "data-content-template",
       detectedTemplate
     );
+    if (detectedTemplate === "event-notice") {
+      nextAttrs = upsertAttribute(nextAttrs, "data-page-tone", "event-notice");
+    }
+    nextAttrs = upsertAttribute(nextAttrs, "data-svg-grammar", visualSystem.svg_grammar);
+    nextAttrs = upsertAttribute(nextAttrs, "data-hero-scene", heroScene);
+    nextAttrs = upsertAttribute(nextAttrs, "data-reading-priority", composition.reading_priority);
+    nextAttrs = upsertAttribute(nextAttrs, "data-scene-density", composition.scene_density);
+    nextAttrs = upsertAttribute(nextAttrs, "data-mark-prominence", composition.mark_prominence);
+    nextAttrs = upsertAttribute(nextAttrs, "data-hero-anchor", composition.hero_anchor);
+    nextAttrs = upsertAttribute(nextAttrs, "data-mark-placement", composition.mark_placement);
+    nextAttrs = upsertAttribute(nextAttrs, "data-graphic-quietness", composition.graphic_quietness);
+    nextAttrs = upsertAttribute(nextAttrs, "data-title-safe", composition.title_safe);
+    nextAttrs = upsertAttribute(nextAttrs, "data-frame-budget", composition.frame_budget);
+    nextAttrs = upsertAttribute(nextAttrs, "data-svg-noise-budget", composition.svg_noise_budget);
 
     if (getArticleUiMode(match) !== "free") {
       nextAttrs = upsertClassTokens(
@@ -404,25 +716,14 @@ function pickDividerStrategy(htmlContent, preset) {
   const family = preset?.family || getArticleFamily(htmlContent);
   const presetId = preset?.id || "";
   const isEditorialNewsPreset = /(journal|brief|report|bulletin|digest|briefing)/i.test(presetId);
+  const grammarVariant = svgGrammar.getDividerVariantForFamily(family);
 
   if (["swiss-journal", "field-atlas", "brief-bulletin", "skyline-pane"].includes(family)) {
     return { mode: "remove", reason: family };
   }
 
-  if (["ops-console", "neon-signal"].includes(family)) {
-    return { mode: "replace", variant: "chevron-band" };
-  }
-
-  if (["poster-brutal", "night-gallery"].includes(family)) {
-    return { mode: "replace", variant: "fold-divider" };
-  }
-
-  if (["archive-paper", "salon-luxe", "ledger-spec"].includes(family)) {
-    return { mode: "replace", variant: "editorial-notch" };
-  }
-
-  if (["deck-story", "play-lab", "aurora-drift"].includes(family)) {
-    return { mode: "replace", variant: "soft-stars" };
+  if (family && grammarVariant) {
+    return { mode: "replace", variant: grammarVariant };
   }
 
   if (["editorial", "magazine"].includes(skin) || isEditorialNewsPreset) {
@@ -463,6 +764,14 @@ function detectDividerVariant(svgContent) {
   return null;
 }
 
+function fingerprintSvgMarkup(svgContent) {
+  return String(svgContent || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s(?:fill|stroke|opacity|stop-color|stroke-width|stroke-linecap|stroke-linejoin|filter|transform|style|class|xmlns|aria-hidden|data-[^=]+)=(['"])[^'"]*\1/gi, "")
+    .replace(/\d+(?:\.\d+)?/g, "#")
+    .trim();
+}
+
 function setDividerVariantAttr(attrs, variant) {
   const sanitizedAttrs = attrs.replace(/\sdata-divider-variant=(['"])[^'"]*\1/gi, "");
   return variant ? `${sanitizedAttrs} data-divider-variant="${variant}"` : sanitizedAttrs;
@@ -496,7 +805,9 @@ function normalizeDividerOrnaments(htmlContent, preset) {
         replacedCount++;
       }
 
-      return `<div${setDividerVariantAttr(attrs, nextVariant)}>\n      ${nextInner}\n    </div>`;
+      let nextAttrs = setDividerVariantAttr(attrs, nextVariant);
+      nextAttrs = upsertAttribute(nextAttrs, "data-svg-role", "divider");
+      return `<div${nextAttrs}>\n      ${nextInner}\n    </div>`;
     }
   );
 
@@ -526,59 +837,15 @@ function escapeRegExp(value) {
 }
 
 function countClassToken(htmlContent, className) {
-  const regex = new RegExp(`class=(['"])[^'"]*\\b${escapeRegExp(className)}\\b[^'"]*\\1`, "gi");
-  return (htmlContent.match(regex) || []).length;
+  return htmlHelpers.countClassToken(htmlContent, className);
 }
 
 function extractBalancedBlockFromOpenTag(htmlContent, startIndex, tagName) {
-  const tagRegex = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
-  tagRegex.lastIndex = startIndex;
-  let depth = 0;
-  let started = false;
-  let match;
-
-  while ((match = tagRegex.exec(htmlContent))) {
-    const token = match[0];
-    const isClosing = token.startsWith("</");
-    const isSelfClosing = /\/>$/.test(token);
-
-    if (!started) {
-      started = true;
-      depth = 1;
-      continue;
-    }
-
-    if (isClosing) {
-      depth -= 1;
-    } else if (!isSelfClosing) {
-      depth += 1;
-    }
-
-    if (depth === 0) {
-      return htmlContent.slice(startIndex, tagRegex.lastIndex);
-    }
-  }
-
-  return null;
+  return htmlHelpers.extractBalancedBlockFromOpenTag(htmlContent, startIndex, tagName);
 }
 
 function collectBalancedBlocksByClass(htmlContent, className, tagNames = ["div", "section"]) {
-  const tags = tagNames.map((tag) => escapeRegExp(tag)).join("|");
-  const regex = new RegExp(
-    `<(${tags})\\b[^>]*class=(['"])[^'"]*\\b${escapeRegExp(className)}\\b[^'"]*\\2[^>]*>`,
-    "gi"
-  );
-  const blocks = [];
-  let match;
-
-  while ((match = regex.exec(htmlContent))) {
-    const block = extractBalancedBlockFromOpenTag(htmlContent, match.index, match[1]);
-    if (!block) continue;
-    blocks.push(block);
-    regex.lastIndex = match.index + block.length;
-  }
-
-  return blocks;
+  return htmlHelpers.collectBalancedBlocksByClass(htmlContent, className, tagNames);
 }
 
 function validateGridLayouts(htmlContent) {
@@ -613,17 +880,16 @@ function validateDecorativeGraphics(htmlContent) {
   const skin = getArticleSkin(htmlContent);
   const pageTone = getArticlePageTone(htmlContent);
   const family = getArticleFamily(htmlContent);
+  const contentTemplate = getArticleContentTemplate(htmlContent);
+  const contentRule = CONTENT_TEMPLATE_RULES[contentTemplate] || CONTENT_TEMPLATE_RULES["knowledge-article"];
   const inlineGraphicCount = countClassToken(htmlContent, "wx-inline-graphic");
   const badgeArtCount = countClassToken(htmlContent, "wx-badge-art");
 
-  if (pageTone === "event-notice") {
-    const decorativeCount = inlineGraphicCount + badgeArtCount;
-    if (decorativeCount > 0) {
-      throw new Error(
-        "Visual guard: event-notice pages may only use semantic section marks and native images. " +
-        "Remove wx-inline-graphic / wx-badge-art unless they are rewritten as a real infographic."
-      );
-    }
+  if ((pageTone === "event-notice" || contentRule.allowBadgeArt === false) && badgeArtCount > 0) {
+    throw new Error(
+      `Visual guard: ${contentTemplate || "this template"} should not use wx-badge-art. ` +
+      "Let hero scene, section marks, and typography carry the identity instead."
+    );
   }
 
   if (family && READING_PRIORITY_FAMILIES.has(family)) {
@@ -638,6 +904,13 @@ function validateDecorativeGraphics(htmlContent) {
         `Visual guard: ${family} should not stack multiple wx-inline-graphic blocks. Use at most one information graphic in reading-first layouts.`
       );
     }
+  }
+
+  if (typeof contentRule.max_inline_infographics === "number" && inlineGraphicCount > contentRule.max_inline_infographics) {
+    throw new Error(
+      `Visual guard: ${contentTemplate} allows at most ${contentRule.max_inline_infographics} wx-inline-graphic block(s). ` +
+      "Keep information graphics to the smallest count that actually improves comprehension."
+    );
   }
 
   if (!skin || !lightSkins.has(skin)) return;
@@ -795,6 +1068,319 @@ function validateSectionHeadingSystems(htmlContent) {
   }
 }
 
+function countSvgNodes(svgContent) {
+  return (String(svgContent || "").match(/<(?:path|circle|rect|line|polyline|polygon|ellipse)\b/gi) || []).length;
+}
+
+function pruneLowValueSvgBlocks(htmlContent, preset) {
+  const family = preset?.family || getArticleFamily(htmlContent);
+  const composition = svgGrammar.getCompositionProfile(family);
+  const readingFirst = composition.reading_priority === "reading-first";
+  const quietGraphics = composition.graphic_quietness === "high";
+  const strictTitleSafe = composition.title_safe === "strict";
+  let nextHtml = htmlContent;
+
+  nextHtml = nextHtml.replace(
+    /<div([^>]*class=(['"])[^'"]*wx-hero-mesh[^'"]*\2[^>]*)>([\s\S]*?)<\/div>/i,
+    (match, attrs, _quote, innerHtml) => {
+      const svgMatch = innerHtml.match(/<svg\b[\s\S]*?<\/svg>/i);
+      if (!svgMatch) return match;
+      const svgMarkup = svgMatch[0];
+      const nodeCount = countSvgNodes(svgMarkup);
+      const hasSceneTemplate = /data-scene-template=(['"])[^'"]+\1/i.test(svgMarkup);
+      const lowContrast = svgLooksLowContrast(svgMarkup);
+      const shouldDrop = !hasSceneTemplate
+        || nodeCount < (readingFirst ? 3 : 2)
+        || (quietGraphics && nodeCount <= 4)
+        || (strictTitleSafe && nodeCount <= 5)
+        || (lowContrast && nodeCount <= Math.max(5, svgGrammar.getHeroNodeBudget(composition) - 6));
+      if (!shouldDrop) return match;
+      return `<div${attrs}>${innerHtml.replace(/<svg\b[\s\S]*?<\/svg>/i, "")}</div>`;
+    }
+  );
+
+  nextHtml = nextHtml.replace(
+    /<div[^>]*class=(['"])[^'"]*wx-inline-graphic[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+    (block) => {
+      const svgMatch = block.match(/<svg\b[\s\S]*?<\/svg>/i);
+      if (!svgMatch) return "";
+      const svgMarkup = svgMatch[0];
+      const nodeCount = countSvgNodes(svgMarkup);
+      const hasTemplate = /data-infographic-template=(['"])[^'"]+\1/i.test(svgMarkup);
+      const lowContrast = svgLooksLowContrast(svgMarkup);
+      const shouldDrop = !hasTemplate
+        || nodeCount < 3
+        || (quietGraphics && nodeCount <= 5)
+        || (strictTitleSafe && nodeCount <= 6)
+        || lowContrast;
+      return shouldDrop ? "" : block;
+    }
+  );
+
+  nextHtml = nextHtml.replace(
+    /<div[^>]*class=(['"])[^'"]*wx-badge-art[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+    (block) => {
+      const svgMatch = block.match(/<svg\b[\s\S]*?<\/svg>/i);
+      if (!svgMatch) return "";
+      const svgMarkup = svgMatch[0];
+      const nodeCount = countSvgNodes(svgMarkup);
+      return nodeCount <= 3 || svgLooksLowContrast(svgMarkup) ? "" : block;
+    }
+  );
+
+  return nextHtml;
+}
+
+function hasTextualStructure(fragment) {
+  if (!fragment) return false;
+  if (!/<(?:p|ul|ol|blockquote|table|figure)\b/i.test(fragment)) return false;
+  return stripTags(fragment).length > 0;
+}
+
+function inlineGraphicInterruptsCopy(bodyBlock, inlineBlock) {
+  if (!bodyBlock || !inlineBlock) return false;
+  const index = bodyBlock.indexOf(inlineBlock);
+  if (index === -1) return false;
+  const before = bodyBlock.slice(0, index);
+  const after = bodyBlock.slice(index + inlineBlock.length);
+  return hasTextualStructure(before) && hasTextualStructure(after);
+}
+
+function collectFreeHeroArtBlocks(htmlContent) {
+  return collectBalancedBlocksByClass(htmlContent, "tp-free-hero-art", ["div", "figure"]);
+}
+
+function collectFreeDividerBlocks(htmlContent) {
+  return collectBalancedBlocksByClass(htmlContent, "tp-free-divider", ["div", "hr"]);
+}
+
+function collectFreeInfographicBlocks(htmlContent) {
+  return [
+    ...collectBalancedBlocksByClass(htmlContent, "tp-free-panel", ["section", "div", "aside"]),
+    ...collectBalancedBlocksByClass(htmlContent, "tp-free-note", ["section", "div", "aside"]),
+    ...collectBalancedBlocksByClass(htmlContent, "tp-free-quote", ["blockquote", "div"]),
+  ].filter((block) => /data-svg-role=(['"])inline-infographic\1/i.test(block));
+}
+
+function validateSvgGrammarSemantics(htmlContent) {
+  if (getArticleUiMode(htmlContent) === "free") return;
+
+  const family = getArticleFamily(htmlContent);
+  const contentTemplate = getArticleContentTemplate(htmlContent);
+  const contentRule = CONTENT_TEMPLATE_RULES[contentTemplate] || CONTENT_TEMPLATE_RULES["knowledge-article"];
+  const visualSystem = svgGrammar.getFamilyVisualSystem(family);
+  const composition = svgGrammar.getCompositionProfile(family);
+  const declaredGrammar = getArticleSvgGrammar(htmlContent);
+  const declaredHeroScene = getArticleHeroScene(htmlContent);
+  const declaredReadingPriority = getArticleReadingPriority(htmlContent);
+  const declaredSceneDensity = getArticleSceneDensity(htmlContent);
+  const declaredMarkProminence = getArticleMarkProminence(htmlContent);
+  const declaredTitleSafe = getArticleTitleSafe(htmlContent);
+  const declaredFrameBudget = getArticleFrameBudget(htmlContent);
+  const declaredSvgNoiseBudget = getArticleSvgNoiseBudget(htmlContent);
+  const expectedHeroScene = svgGrammar.chooseHeroScene({
+    contentTemplate,
+    family,
+    archetype: getArticleArchetype(htmlContent),
+  });
+
+  if (!declaredGrammar) {
+    throw new Error("SVG grammar guard: article is missing data-svg-grammar.");
+  }
+  if (declaredGrammar !== visualSystem.svg_grammar) {
+    throw new Error(
+      `SVG grammar guard: family ${family || "default"} should use ${visualSystem.svg_grammar}, found ${declaredGrammar}.`
+    );
+  }
+  if (declaredReadingPriority !== composition.reading_priority) {
+    throw new Error(
+      `SVG composition guard: family ${family || "default"} should use data-reading-priority="${composition.reading_priority}", found ${declaredReadingPriority || "missing"}.`
+    );
+  }
+  if (declaredSceneDensity !== composition.scene_density) {
+    throw new Error(
+      `SVG composition guard: family ${family || "default"} should use data-scene-density="${composition.scene_density}", found ${declaredSceneDensity || "missing"}.`
+    );
+  }
+  if (declaredMarkProminence !== composition.mark_prominence) {
+    throw new Error(
+      `SVG composition guard: family ${family || "default"} should use data-mark-prominence="${composition.mark_prominence}", found ${declaredMarkProminence || "missing"}.`
+    );
+  }
+  if (declaredTitleSafe !== composition.title_safe) {
+    throw new Error(
+      `SVG composition guard: family ${family || "default"} should use data-title-safe="${composition.title_safe}", found ${declaredTitleSafe || "missing"}.`
+    );
+  }
+  if (declaredFrameBudget !== composition.frame_budget) {
+    throw new Error(
+      `SVG composition guard: family ${family || "default"} should use data-frame-budget="${composition.frame_budget}", found ${declaredFrameBudget || "missing"}.`
+    );
+  }
+  if (declaredSvgNoiseBudget !== composition.svg_noise_budget) {
+    throw new Error(
+      `SVG composition guard: family ${family || "default"} should use data-svg-noise-budget="${composition.svg_noise_budget}", found ${declaredSvgNoiseBudget || "missing"}.`
+    );
+  }
+  if (!declaredHeroScene) {
+    throw new Error("SVG grammar guard: article is missing data-hero-scene.");
+  }
+  if (declaredHeroScene !== expectedHeroScene) {
+    throw new Error(
+      `SVG grammar guard: content-template ${contentTemplate} with family ${family || "default"} should use hero scene ${expectedHeroScene}, found ${declaredHeroScene}.`
+    );
+  }
+
+  const heroMeshBlock = collectBalancedBlocksByClass(htmlContent, "wx-hero-mesh", ["div"])[0] || "";
+  if (heroMeshBlock && !new RegExp(`data-hero-scene=(['"])${escapeRegExp(declaredHeroScene)}\\1`, "i").test(heroMeshBlock)) {
+    throw new Error("SVG grammar guard: wx-hero-mesh must carry the same data-hero-scene as the article root.");
+  }
+  if (heroMeshBlock && !/data-svg-role=(['"])hero-scene\1/i.test(heroMeshBlock)) {
+    throw new Error("SVG composition guard: wx-hero-mesh must carry data-svg-role=\"hero-scene\".");
+  }
+  if (heroMeshBlock && !new RegExp(`data-scene-density=(['"])${escapeRegExp(composition.scene_density)}\\1`, "i").test(heroMeshBlock)) {
+    throw new Error("SVG composition guard: wx-hero-mesh must carry the article scene density metadata.");
+  }
+  if (heroMeshBlock && !new RegExp(`data-reading-priority=(['"])${escapeRegExp(composition.reading_priority)}\\1`, "i").test(heroMeshBlock)) {
+    throw new Error("SVG composition guard: wx-hero-mesh must carry the article reading-priority metadata.");
+  }
+  const heroSvg = heroMeshBlock.match(/<svg\b[\s\S]*?<\/svg>/i)?.[0] || "";
+  const heroNodeCount = countSvgNodes(heroSvg);
+  if (heroSvg && !new RegExp(`data-scene-template=(['"])${escapeRegExp(declaredHeroScene)}\\1`, "i").test(heroSvg)) {
+    throw new Error("SVG grammar guard: hero scene SVG must come from the registered scene library.");
+  }
+  if (heroSvg && !/data-svg-role=(['"])hero-scene\1/i.test(heroSvg)) {
+    throw new Error("SVG composition guard: hero scene SVG must declare data-svg-role=\"hero-scene\".");
+  }
+  if (heroNodeCount > svgGrammar.getHeroNodeBudget(composition)) {
+    throw new Error(`SVG composition guard: hero scene is too noisy (${heroNodeCount} nodes). Keep hero scenes structural and legible.`);
+  }
+  if (heroSvg && heroNodeCount < 2) {
+    throw new Error("SVG grammar guard: hero scene is too generic. Use a registered scene instead of a bare gradient mesh.");
+  }
+  const heroRoleHitsOutsideHero = (htmlContent.match(/data-svg-role=(['"])hero-scene\1/gi) || []).length
+    - (heroMeshBlock ? 1 : 0)
+    - (heroSvg ? 1 : 0);
+  if (heroRoleHitsOutsideHero > 0) {
+    throw new Error("SVG composition guard: hero-scene role is only allowed in wx-hero-mesh and its registered SVG.");
+  }
+
+  const repeatedKinds = new Map();
+  const fingerprintRegistry = new Map();
+  const sectionBlocks = collectBalancedBlocksByClass(htmlContent, "wx-section-card", ["div", "section"]);
+  sectionBlocks.forEach((sectionBlock, index) => {
+    const headingBlock = collectBalancedBlocksByClass(sectionBlock, "wx-section-heading", ["div"])[0];
+    if (!headingBlock) return;
+
+    const sectionNumber = index + 1;
+    const captionText = stripTags(headingBlock.match(/<[^>]*class=(['"])[^'"]*wx-card-caption[^'"]*\1[^>]*>([\s\S]*?)<\/[^>]+>/i)?.[2] || "");
+    const titleText = stripTags(headingBlock.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)?.[1] || "");
+    const bodyBlock = collectBalancedBlocksByClass(sectionBlock, "wx-section-body", ["div"])[0] || sectionBlock;
+    const bodyText = stripTags(bodyBlock);
+    const expectedKind = svgGrammar.detectSectionMarkKind({
+      caption: captionText,
+      title: titleText,
+      body: bodyText,
+      contentTemplate,
+    });
+    const markBlock = headingBlock.match(/<span[^>]*class=(['"])[^'"]*wx-section-mark[^'"]*\1[^>]*>[\s\S]*?<\/span>/i)?.[0] || "";
+    const markKind = markBlock.match(/data-mark-kind=(['"])([^'"]+)\1/i)?.[2] || "";
+    const svgMatch = markBlock.match(/<svg\b[\s\S]*?<\/svg>/i);
+
+    if (!markKind) {
+      throw new Error(`SVG grammar guard: section ${sectionNumber} is missing data-mark-kind on wx-section-mark.`);
+    }
+    if (!/data-svg-role=(['"])section-mark\1/i.test(markBlock)) {
+      throw new Error(`SVG composition guard: section ${sectionNumber} mark must carry data-svg-role="section-mark".`);
+    }
+    if (!new RegExp(`data-mark-prominence=(['"])${escapeRegExp(composition.mark_prominence)}\\1`, "i").test(markBlock)) {
+      throw new Error(`SVG composition guard: section ${sectionNumber} mark must carry data-mark-prominence="${composition.mark_prominence}".`);
+    }
+    if (markKind !== expectedKind) {
+      throw new Error(
+        `SVG grammar guard: section ${sectionNumber} should use mark kind ${expectedKind} for "${captionText || titleText}", found ${markKind}.`
+      );
+    }
+    if (!svgMatch) {
+      throw new Error(`SVG grammar guard: section ${sectionNumber} is missing an inline SVG inside wx-section-mark.`);
+    }
+
+    const nodeCount = (svgMatch[0].match(/<(?:path|circle|rect|line|polyline|polygon|ellipse)\b/gi) || []).length;
+    if (nodeCount > 8) {
+      throw new Error(`SVG grammar guard: section ${sectionNumber} mark is too complex (${nodeCount} nodes). Keep section marks small and semantic.`);
+    }
+    const fingerprint = fingerprintSvgMarkup(svgMatch[0]);
+    const previousFingerprint = fingerprintRegistry.get(fingerprint);
+    if (previousFingerprint && previousFingerprint.kind !== markKind) {
+      throw new Error(
+        `SVG grammar guard: section ${sectionNumber} reuses the ${previousFingerprint.kind} mark geometry for ${markKind}. ` +
+        "Do not fake semantic variety by only swapping colors."
+      );
+    }
+    fingerprintRegistry.set(fingerprint, { kind: markKind, section: sectionNumber });
+    repeatedKinds.set(markKind, (repeatedKinds.get(markKind) || 0) + 1);
+  });
+
+  const excessiveRepeats = [...repeatedKinds.entries()]
+    .filter((entry) => entry[1] >= 4 && entry[0] !== (svgGrammar.DEFAULT_MARK_KIND_BY_TEMPLATE[contentTemplate] || ""))
+    .map((entry) => entry[0]);
+  if (excessiveRepeats.length > 0) {
+    throw new Error(
+      `SVG grammar guard: repeated mark kinds detected (${excessiveRepeats.join(", ")}). Distinct section semantics should not collapse into the same badge.`
+    );
+  }
+
+  const inlineBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-inline-graphic[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
+  const approvedInlineKinds = svgGrammar.getApprovedInfographicKinds(contentTemplate, family);
+  const bodyBlocks = collectBalancedBlocksByClass(htmlContent, "wx-section-body", ["div"]);
+  bodyBlocks.forEach((bodyBlock, idx) => {
+    if (/\bwx-section-mark\b/.test(bodyBlock)) {
+      throw new Error(`SVG composition guard: section ${idx + 1} body still contains wx-section-mark. Keep section marks in the heading meta lane only.`);
+    }
+    const strippedBody = stripStandaloneSvgMarkup(bodyBlock, [
+      /<div[^>]*class=(['"])[^'"]*wx-inline-graphic[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi,
+    ]);
+    if (/<svg\b/i.test(strippedBody)) {
+      throw new Error(`SVG composition guard: section ${idx + 1} body contains standalone SVG. Use wx-inline-graphic as a dedicated structure block or remove the decoration.`);
+    }
+  });
+  inlineBlocks.forEach((block, idx) => {
+    const kind = block.match(/data-infographic-kind=(['"])([^'"]+)\1/i)?.[2] || "";
+    const svgMatch = block.match(/<svg\b[\s\S]*?<\/svg>/i);
+    const containingBody = bodyBlocks.find((bodyBlock) => bodyBlock.includes(block)) || "";
+    if (!kind) {
+      throw new Error(`SVG grammar guard: wx-inline-graphic ${idx + 1} is missing data-infographic-kind.`);
+    }
+    if (!/data-svg-role=(['"])inline-infographic\1/i.test(block)) {
+      throw new Error(`SVG composition guard: wx-inline-graphic ${idx + 1} must carry data-svg-role="inline-infographic".`);
+    }
+    if (!svgMatch) {
+      throw new Error(`SVG grammar guard: wx-inline-graphic ${idx + 1} is missing an SVG payload.`);
+    }
+    if (approvedInlineKinds.length > 0 && !approvedInlineKinds.includes(kind)) {
+      throw new Error(
+        `SVG grammar guard: wx-inline-graphic ${idx + 1} uses ${kind}, which is not approved for ${contentTemplate}/${family || "default"}.`
+      );
+    }
+    if (!new RegExp(`data-infographic-template=(['"])${escapeRegExp(kind)}\\1`, "i").test(svgMatch[0])) {
+      throw new Error(`SVG grammar guard: wx-inline-graphic ${idx + 1} must come from the approved infographic registry.`);
+    }
+    const nodeCount = countSvgNodes(svgMatch[0]);
+    if (nodeCount > svgGrammar.getInlineInfographicNodeBudget(composition)) {
+      throw new Error(`SVG grammar guard: wx-inline-graphic ${idx + 1} is too complex (${nodeCount} nodes). Use a clearer structural infographic.`);
+    }
+    if (containingBody && inlineGraphicInterruptsCopy(containingBody, block)) {
+      throw new Error(`SVG composition guard: wx-inline-graphic ${idx + 1} interrupts continuous body copy. Move it before or after the section text cluster.`);
+    }
+  });
+
+  if (typeof contentRule.max_inline_infographics === "number" && inlineBlocks.length > contentRule.max_inline_infographics) {
+    throw new Error(
+      `SVG grammar guard: ${contentTemplate} allows at most ${contentRule.max_inline_infographics} inline infographic block(s).`
+    );
+  }
+}
+
 function validateDividerOrnaments(htmlContent) {
   const dividerBlocks = htmlContent.match(/<div[^>]*class=(['"])[^'"]*wx-divider-ornament[^'"]*\1[^>]*>[\s\S]*?<\/div>/gi) || [];
   const skin = getArticleSkin(htmlContent);
@@ -821,12 +1407,26 @@ function validateDividerOrnaments(htmlContent) {
       "Use card spacing, headings, and section rhythm instead."
     );
   }
+
+  dividerBlocks.forEach((block, idx) => {
+    if (!/data-svg-role=(['"])divider\1/i.test(block)) {
+      throw new Error(`Divider guard: divider ${idx + 1} must carry data-svg-role="divider".`);
+    }
+  });
+
+  const bodyBlocks = collectBalancedBlocksByClass(htmlContent, "wx-section-body", ["div"]);
+  bodyBlocks.forEach((bodyBlock, idx) => {
+    if (/\bwx-divider-ornament\b/.test(bodyBlock)) {
+      throw new Error(`Divider guard: divider ${idx + 1} is placed inside wx-section-body. Keep dividers between cards, not inside body copy.`);
+    }
+  });
 }
 
 function validateFreeModeDesign(htmlContent) {
   if (getArticleUiMode(htmlContent) !== "free") return;
 
   const freeHelpers = collectFreeHelperClasses(htmlContent);
+  const composition = svgGrammar.getCompositionProfile(getArticleFamily(htmlContent));
   if (!freeHelpers.includes("tp-free-shell") || freeHelpers.length < 3) {
     throw new Error(
       "Free-mode guard: start from tp-free primitives. Use tp-free-shell plus at least two other tp-free-* helpers before adding custom classes."
@@ -838,6 +1438,56 @@ function validateFreeModeDesign(htmlContent) {
     throw new Error(
       `Free-mode guard: found hardcoded theme colors (${hardcodedColors.join(", ")}). ` +
       "Use preset CSS variables instead of custom hex colors."
+    );
+  }
+
+  const freeHeroArts = collectFreeHeroArtBlocks(htmlContent);
+  const freeDividers = collectFreeDividerBlocks(htmlContent);
+  const freeInfographics = collectFreeInfographicBlocks(htmlContent);
+  const totalSvgCount = (htmlContent.match(/<svg\b/gi) || []).length;
+
+  if (freeHeroArts.length > 1) {
+    throw new Error("Free-mode guard: only one tp-free-hero-art block is allowed. Keep one visual lead, not multiple competing scenes.");
+  }
+
+  freeHeroArts.forEach((block, idx) => {
+    const freeHeroBlock = collectBalancedBlocksByClass(htmlContent, "tp-free-hero", ["section", "div"]).find((heroBlock) => heroBlock.includes(block));
+    if (!freeHeroBlock) {
+      throw new Error(`Free-mode guard: tp-free-hero-art ${idx + 1} must stay inside tp-free-hero.`);
+    }
+    if (!/data-svg-role=(['"])hero-scene\1/i.test(block)) {
+      throw new Error(`Free-mode guard: tp-free-hero-art ${idx + 1} must carry data-svg-role="hero-scene".`);
+    }
+    const svgMarkup = block.match(/<svg\b[\s\S]*?<\/svg>/i)?.[0] || "";
+    const nodeCount = countSvgNodes(svgMarkup);
+    if (nodeCount > svgGrammar.getHeroNodeBudget(composition) + 2) {
+      throw new Error(`Free-mode guard: tp-free-hero-art ${idx + 1} is too noisy (${nodeCount} nodes). Keep the free hero graphic structural.`);
+    }
+  });
+
+  freeDividers.forEach((block, idx) => {
+    if (!/data-svg-role=(['"])divider\1/i.test(block)) {
+      throw new Error(`Free-mode guard: tp-free-divider ${idx + 1} must carry data-svg-role="divider".`);
+    }
+  });
+
+  if (freeInfographics.length > 1) {
+    throw new Error("Free-mode guard: keep at most one standalone infographic SVG zone. Free mode stays open, but it still needs a single dominant graphic rhythm.");
+  }
+
+  freeInfographics.forEach((block, idx) => {
+    if (!/\b(?:tp-free-panel|tp-free-note|tp-free-quote)\b/.test(block)) {
+      throw new Error(`Free-mode guard: infographic block ${idx + 1} must live in an independent tp-free-panel / tp-free-note / tp-free-quote zone.`);
+    }
+    if (!canPromoteFreeBlockToInfographic(block)) {
+      throw new Error(`Free-mode guard: infographic block ${idx + 1} is too decorative for the reading lane. Keep it explanatory, compact, and structurally independent.`);
+    }
+  });
+
+  if (totalSvgCount > freeHeroArts.length + freeDividers.length + freeInfographics.length) {
+    throw new Error(
+      "Free-mode guard: found SVG outside the allowed hero/divider/explanatory zones. " +
+      "Keep free-mode graphics in tp-free-hero-art, tp-free-divider, or one standalone explanatory block instead of dropping them into the reading lane."
     );
   }
 }
@@ -927,6 +1577,7 @@ function validateArticleDesign(htmlContent) {
   validateGridLayouts(htmlContent);
   validateDecorativeGraphics(htmlContent);
   validateSectionHeadingSystems(htmlContent);
+  validateSvgGrammarSemantics(htmlContent);
   validateDividerOrnaments(htmlContent);
   validateNativeImageUsage(htmlContent);
   validateContentTemplateStructure(htmlContent);
@@ -994,8 +1645,8 @@ const EXPORT_SCALE_OPTIONS = {
 // 默认使用 1080px（与 v1.7.0 保持一致）
 const DEFAULT_SCALE = '1080';
 
-function buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml) {
-  const editorJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'editor-stable.js'), 'utf-8');
+function buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml, editorBundle) {
+  const editorJs = String(editorBundle || "").replace(/<\/script/gi, "<\\/script");
   // Sanitize: html2canvas.min.js may contain literal "</script>" which breaks inline embedding
   const html2canvasJs = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'html2canvas.min.js'), 'utf-8')
     .replace(/<\/script/gi, '<\\/script');
@@ -1207,15 +1858,17 @@ async function main() {
 
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
+  const bundledAssets = ensureBundledAssets(SKILL_DIR);
   const cssBundle = [
-    fs.readFileSync(CSS_PATH, "utf-8"),
+    bundledAssets.cssBundle,
     fs.readFileSync(FREE_CSS_PATH, "utf-8"),
   ].join("\n\n");
   const presetsData = JSON.parse(fs.readFileSync(PRESETS_PATH, "utf-8"));
   const rawHtmlContent = fs.readFileSync(htmlPath, "utf-8");
   const { html: inputArticleHtml, hadOuterDocument } = sanitizeArticleFragment(rawHtmlContent);
   const preset = loadPreset(presetsData, args.preset, inputArticleHtml);
-  const normalizedArticleHtml = applyPresetMetadata(inputArticleHtml, preset);
+  const metadataArticleHtml = applyPresetMetadata(inputArticleHtml, preset);
+  const normalizedArticleHtml = normalizeSemanticGraphics(metadataArticleHtml, preset);
   const dividerNormalization = normalizeDividerOrnaments(normalizedArticleHtml, preset);
   const htmlContent = dividerNormalization.html;
   validateArticleDesign(htmlContent);
@@ -1245,7 +1898,14 @@ async function main() {
   }
 
   // 1. Always output standalone HTML page
-  const standaloneHtml = buildStandalonePage(htmlContent, cssBundle, cssVarsBlock, preset, logoHtml);
+  const standaloneHtml = buildStandalonePage(
+    htmlContent,
+    cssBundle,
+    cssVarsBlock,
+    preset,
+    logoHtml,
+    bundledAssets.editorBundle
+  );
   const htmlOutPath = path.join(outputDir, `${outputBaseName}-page.html`);
   fs.writeFileSync(htmlOutPath, standaloneHtml, "utf-8");
   console.log(`HTML page: ${htmlOutPath}`);

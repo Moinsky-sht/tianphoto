@@ -1,55 +1,193 @@
 # HTML 组件文档
 
-**重要：禁止在任何组件中使用 Emoji 字符。所有图标和装饰必须使用 SVG。**
+重要：
 
-所有可用的 HTML 组件、结构规范和内置 SVG 资源。
+- 禁止在任何组件中使用 Emoji。
+- `rule` 模式下不再鼓励模型自由手写大段 SVG。
+- 先决定 `content-template`，再决定 `svg-grammar`，再决定 `hero-scene`，最后为每节分配 `mark-kind`。
 
 ## 根结构
 
 ```html
-<article class="article-theme style-skin-{skin}" data-preset="{preset-id}" data-style-family="{family}" data-style-archetype="{archetype}" data-heading-system="{heading-system}">
+<article
+  class="article-theme style-skin-{skin}"
+  data-preset="{preset-id}"
+  data-style-family="{family}"
+  data-style-archetype="{archetype}"
+  data-heading-system="{heading-system}"
+  data-content-template="{content-template}"
+  data-svg-grammar="{svg-grammar}"
+  data-hero-scene="{hero-scene}"
+>
   <div class="wx-article-shell">
     <!-- 组件在此处排列 -->
   </div>
 </article>
 ```
 
-`{skin}` 取自 presets.json 的 `skin` 字段：`editorial` / `glass` / `brutal` / `neon` / `tech` / `mono` / `luxe` / `magazine` / `soft` / `luxe-dark` / `mono-dark`。
+这些属性是正式接口，不是装饰性元数据：
 
-`{family}` 和 `{archetype}` 取自 presets.json 的风格元数据。它们会驱动更明确的家族化版式，不再只是换颜色。
+- `data-content-template`
+  先定义页面是什么类型：`event-notice / weekly-report / release-brief / knowledge-article / case-recap`
+- `data-svg-grammar`
+  家族级图形语法，例如 `editorial-schematic / signal-panel / archive-plate`
+- `data-hero-scene`
+  hero 场景，例如 `paper-fold / signal-grid / museum-frame`
+- `data-mark-kind`
+  章节语义，例如 `registration / schedule / awards / recap`
 
----
+## SVG Grammar Layer
 
-## 组件列表
+`rule` 模式里的 SVG 分成 3 类，不要混着用：
 
-### 1. wx-hero-card（头图卡片）
+1. `Hero Scene`
+   只负责首页气质和主题启动，不承担章节语义。
+1. `Section Mark`
+   只服务章节语义，固定放在章节元信息层。
+1. `Inline Infographic`
+   只在真的帮助理解结构时出现。
+
+默认原则：
+
+- hero 用 scene slot，不手写大段自由坐标。
+- section mark 是唯一正式章节图形接口，每节最多 1 个。
+- `wx-inline-graphic` 必须命中批准过的信息图模板。
+- `wx-badge-art` 不是默认装饰容器；`event-notice` 默认禁用。
+
+## Hero Scene
+
+### `wx-hero-card`
 
 ```html
 <div class="wx-hero-card">
-  <div class="wx-hero-mesh">
-    <svg viewBox="0 0 1080 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="hg" x1="0" y1="0" x2="1080" y2="180">
-          <stop offset="0%" stop-color="var(--hero-grad-a)"/>
-          <stop offset="100%" stop-color="var(--hero-grad-b)"/>
-        </linearGradient>
-      </defs>
-      <rect width="1080" height="180" fill="url(#hg)"/>
-      <circle cx="200" cy="80" r="110" fill="var(--hero-fade)"/>
-      <circle cx="800" cy="50" r="70" fill="var(--hero-fade)"/>
-    </svg>
-  </div>
+  <div class="wx-hero-mesh" data-hero-scene="{hero-scene}"></div>
   <span class="wx-eyebrow">栏目标签</span>
   <h1>文章主标题</h1>
   <p class="wx-lead">副标题或一句话导读</p>
   <div class="wx-pill-grid">
-    <span class="wx-pill">标签1</span>
-    <span class="wx-pill">标签2</span>
+    <span class="wx-pill">标签 1</span>
+    <span class="wx-pill">标签 2</span>
   </div>
 </div>
 ```
 
-### 2. wx-intro-card（导读卡片）
+允许的 hero scene：
+
+- `ribbon-flow`
+- `signal-grid`
+- `paper-fold`
+- `constellation-map`
+- `editorial-beam`
+- `museum-frame`
+
+要求：
+
+- `wx-hero-mesh` 是 scene slot，最终 SVG 由 grammar registry 生成。
+- 不要自己写“渐变矩形 + 两三个圆”的通用 mesh。
+- hero 只负责页面启动气质，不要借它替代 section 语义。
+
+## Section Mark
+
+### `wx-section-card`
+
+```html
+<div class="wx-section-card">
+  <div class="wx-section-top">
+    <div class="wx-section-heading">
+      <span class="wx-section-index">01</span>
+      <div class="wx-card-caption">栏目标签</div>
+      <span class="wx-section-mark" data-mark-kind="{mark-kind}" aria-hidden="true"></span>
+      <div class="wx-title-row">
+        <h2>章节标题</h2>
+      </div>
+    </div>
+  </div>
+  <div class="wx-section-body">
+    <p>正文……</p>
+  </div>
+</div>
+```
+
+正式语义域：
+
+- `registration`：报名 / 通知
+- `organization`：组织 / 联合发起
+- `task`：目标 / 开发任务
+- `schedule`：日程 / 时间节点
+- `qualification`：资格 / 权益
+- `awards`：奖项 / 证书
+- `growth`：后续机会 / 增长路径
+- `perspective`：观点 / 方法定位
+- `method`：方法 / 流程
+- `delivery`：交付 / 成果
+- `risk`：风险 / 约束
+- `recap`：复盘 / 总结
+
+要求：
+
+- `wx-section-mark` 必须带 `data-mark-kind`。
+- 每节标题只能有 1 个 `wx-section-mark`。
+- 相同语义可以复用同一套 family 画法，不同语义必须换图。
+- 不允许通用加号、调试图标、空洞装饰件冒充语义徽记。
+
+## Heading System
+
+同一页必须只选择一种主 `heading system`：
+
+| System | 结构重点 | 适合家族 |
+| --- | --- | --- |
+| `icon-led` | 只在少数图形主导页面保留显式 `wx-section-icon` | `field-atlas`, `aurora-drift`, `play-lab` |
+| `index-led` | 阅读型默认方案，强调 `wx-section-index + wx-card-caption + wx-section-mark` | `swiss-journal`, `ledger-spec`, `brief-bulletin`, `poster-brutal`, `skyline-pane` |
+| `dual` | 只给 dashboard / signal panel 家族保留 icon + index 双轨 | `ops-console`, `neon-signal` |
+| `plaque` | 牌匾感标题区，但仍只允许 1 个 `wx-section-mark` | `archive-paper`, `salon-luxe`, `night-gallery`, `studio-ribbon`, `deck-story` |
+
+禁止做法：
+
+- 第一节是 icon system，第二节突然变成纯编号。
+- 同一页所有 section 共用一个无语义空图形，只换颜色。
+- 标题左右各挂一个 SVG，或者在标题下面再补一条无职责轨道线。
+- 继续使用 `wx-title-flank / wx-heading-ornament / wx-section-emblem`。
+
+## Inline Infographic
+
+### `wx-inline-graphic`
+
+```html
+<div class="wx-inline-graphic" data-infographic-kind="{infographic-kind}"></div>
+```
+
+只允许以下受控模板：
+
+- `process-track`
+- `node-network`
+- `compare-grid`
+- `path-map`
+- `evidence-stack`
+- `structure-breakdown`
+
+要求：
+
+- 必须带 `data-infographic-kind`。
+- 最终 SVG 由 grammar registry 生成。
+- `event-notice / weekly-report / release-brief / knowledge-article / case-recap` 默认最多 1 个。
+- 阅读优先页面默认可以是 0，不强制出现。
+- 如果不能独立解释结构，就不要放。
+
+### `wx-badge-art`
+
+```html
+<div class="wx-badge-art"></div>
+```
+
+边界：
+
+- 这是受限高级组件，不是“让页面更丰富”的默认装饰块。
+- `event-notice` 默认禁用。
+- 阅读优先 family 默认不推荐。
+
+## 其他组件
+
+### `wx-intro-card`
 
 ```html
 <div class="wx-intro-card">
@@ -60,70 +198,7 @@
 </div>
 ```
 
-### 3. wx-section-card（章节卡片）
-
-```html
-<div class="wx-section-card">
-  <div class="wx-section-top">
-    <div class="wx-section-heading">
-      <span class="wx-section-index">01</span>
-      <div>
-        <div class="wx-card-caption">栏目标签</div>
-        <div class="wx-title-row">
-          <h2>章节标题</h2>
-          <span class="wx-section-mark" aria-hidden="true">
-            <!-- 单个语义徽记 SVG -->
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="wx-section-body">
-    <p>正文……</p>
-    <ul><li>列表项</li></ul>
-    <blockquote>引用</blockquote>
-  </div>
-</div>
-```
-
-### 章节标题系统
-
-同一篇页面必须选择一种主 `heading system`，不要在不同带 `wx-section-top` 的章节之间混用。默认方向是“文本优先、图形辅助”，不是“用挂件挤压标题”。
-
-| System | 结构重点 | 适合家族 |
-| --- | --- | --- |
-| `icon-led` | 少数图形主导页面使用 `wx-section-icon`，编号可弱化 | `field-atlas`, `aurora-drift`, `play-lab` |
-| `index-led` | 阅读型默认方案，强调 `wx-section-index + h2 + wx-section-mark` | `swiss-journal`, `ledger-spec`, `brief-bulletin`, `poster-brutal`, `skyline-pane` |
-| `dual` | 仅给 dashboard / signal panel 家族保留 icon + index 双轨 | `ops-console`, `neon-signal` |
-| `plaque` | 牌匾感标题区，仍然只允许 1 个 `wx-section-mark` | `archive-paper`, `salon-luxe`, `night-gallery`, `studio-ribbon`, `deck-story` |
-
-默认做法：
-
-- 阅读型页面默认使用 `index-led`，结构为 `wx-section-index + wx-card-caption + h2 + wx-section-mark`
-- `wx-section-mark` 是唯一正式的章节语义图形接口，固定放在标题块右上或右侧收边位
-- `event-notice` / `notice` / 活动招募页默认使用 `data-page-tone="event-notice"` + `data-heading-system="index-led"`
-- 只有 `icon-led` / `dual` 才需要显式输出 `wx-section-icon`
-
-禁止做法：
-
-- 第一段用 icon，第二段突然只剩编号
-- 使用无语义的占位图标，例如通用加号、无含义十字、调试图标
-- 标题左右各挂一个 SVG，或者在标题下再补一条无解释轨道线
-- 同一页把不同章节做成同一个空洞图形，只换颜色假装区分
-
-正式标题语义徽记：
-
-```html
-<span class="wx-section-mark" aria-hidden="true">
-  <svg viewBox="0 0 24 24" fill="none">
-    <!-- 与章节语义直接对应的报名卡 / 奖杯 / 时钟 / 勾选 / 代码 / 机构关系等 -->
-  </svg>
-</span>
-```
-
-它必须承担语义职责，只能帮助识别章节内容，不能变成一块独立装饰。
-
-### 4. wx-metric-grid（数据指标）
+### `wx-metric-grid`
 
 ```html
 <div class="wx-metric-grid" style="grid-template-columns: 1fr 1fr;">
@@ -132,13 +207,13 @@
     <span>增长率</span>
   </div>
   <div class="wx-metric-card">
-    <strong>¥3.2亿</strong>
+    <strong>¥3.2 亿</strong>
     <span>GMV</span>
   </div>
 </div>
 ```
 
-### 5. wx-compare-grid（对比卡片）
+### `wx-compare-grid`
 
 ```html
 <div class="wx-compare-grid" style="grid-template-columns: 1fr 1fr;">
@@ -153,87 +228,61 @@
 </div>
 ```
 
-### 6. wx-timeline-card（时间线）
+### `wx-timeline-card`
 
 ```html
 <div class="wx-timeline-card">
   <div class="wx-timeline-item">
     <div class="wx-timeline-dot"></div>
     <div>
-      <h3>2023 Q1</h3>
+      <h3>阶段一</h3>
       <p>事件描述……</p>
     </div>
   </div>
-  <!-- 更多 timeline-item -->
 </div>
 ```
 
-### 7. wx-quote-card（引言）
+### `wx-quote-card`
 
 ```html
 <blockquote class="wx-quote-card">
-  "引言内容"
+  “引言内容”
   <small>—— 来源</small>
 </blockquote>
 ```
 
-### 8. wx-summary-card（总结）
+### `wx-summary-card`
 
 ```html
-<div class="wx-section-card">
-  <span class="wx-card-caption">总结</span>
-  <div class="wx-summary-card">
-    <p>总结文字……</p>
-  </div>
+<div class="wx-summary-card">
+  <p>总结文字……</p>
 </div>
 ```
 
-### 9. wx-divider-ornament（分隔线，可选）
+### `wx-divider-ornament`
 
 ```html
-<div class="wx-divider-ornament">
-  <!-- 分隔线 SVG -->
-</div>
+<div class="wx-divider-ornament"></div>
 ```
 
-资讯简报、早报、新闻汇总这类页面通常不需要它，优先靠留白和标题层级完成转场。
+要求：
 
-### 10. wx-inline-graphic / wx-badge-art（仅在确有信息职责时使用）
+- 分隔线也是 family grammar 的一部分，不再使用通用 divider。
+- 资讯简报、阅读型页面通常不需要它，优先靠留白和标题节奏完成转场。
 
-```html
-<div class="wx-inline-graphic"><!-- 信息图 / 流程图 / 时间结构图 SVG --></div>
-<div class="wx-badge-art"><!-- 仅少数表达型页面可用的语义徽章 SVG --></div>
-```
-
-使用边界：
-
-- 不要把它们当作“让页面看起来更丰富”的默认装饰块。
-- `event-notice`、阅读型和公告型页面默认不使用它们，优先靠标题层级、卡片节奏和原生图片完成表达。
-- 如果 SVG 不能帮助读者理解结构关系，就不要放。
-
-### 11. phone-brand-banner（品牌横幅）
-
-仅当 `logos/` 目录有文件时使用：
+### `phone-brand-banner`
 
 ```html
 <div class="phone-brand-banner">
   <div class="phone-brand-mark"><img src="logo.png" alt="Logo"></div>
   <div class="phone-brand-copy">
-    <span class="phone-brand-overline">BRAND</span>
     <strong>品牌名称</strong>
     <small>slogan</small>
   </div>
-  <span class="phone-brand-chip">标签</span>
 </div>
 ```
 
-### 12. 表格
-
-标准 HTML table，自动美化。
-
-### 13. 图片占位
-
-可在 HTML 中留出图片区域供用户后续插入：
+### `wx-image-drop-zone`
 
 ```html
 <div class="wx-image-drop-zone" contenteditable="false">
@@ -241,175 +290,7 @@
 </div>
 ```
 
-优先原则：
+要求：
 
-- 如果你已经有实际图片，请直接使用原生 `<img>` 插入到正文中，主题会自动美化。
-- 只有在明确需要给用户预留“后续再补图”的坑位时，才使用 `wx-image-drop-zone`。
-
----
-
-## 内置 SVG 库
-
-所有 SVG 来自 article-studio，使用 `currentColor` 自适应主题色。viewBox 均为 `0 0 64 64`（图标）或其他标注尺寸。
-
-### 栏目图标（用于 wx-section-icon）
-
-#### spark-orbit · 灵感轨迹
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><circle cx="32" cy="32" r="21" stroke="currentColor" stroke-width="3.5"/><path d="M32 8v11M32 45v11M8 32h11M45 32h11" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="32" cy="32" r="7" fill="currentColor"/></svg>
-```
-适用：灵感、科技、AI
-
-#### book-crest · 开卷纹章
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M14 16.5C14 14 16 12 18.5 12H30c3.2 0 6.1 1.4 8 3.6C39.9 13.4 42.8 12 46 12h1.5C50 12 52 14 52 16.5V48a2 2 0 0 1-2.9 1.8L40 45l-9 4-9-4-9.1 4A2 2 0 0 1 10 48V16.5a2 2 0 0 1 2-2h2Z" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"/><path d="M32 18v27" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>
-```
-适用：知识、阅读、课程
-
-#### compass-ring · 方向环
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><circle cx="32" cy="32" r="22" stroke="currentColor" stroke-width="3.5"/><path d="M40.5 23.5 36 36l-12.5 4.5L28 28l12.5-4.5Z" fill="currentColor"/><circle cx="32" cy="32" r="4.5" fill="white" stroke="currentColor" stroke-width="3"/></svg>
-```
-适用：策略、方向、规划
-
-#### column-tiles · 信息拼块
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="12" y="12" width="18" height="18" rx="5" fill="currentColor"/><rect x="34" y="12" width="18" height="12" rx="5" stroke="currentColor" stroke-width="3"/><rect x="34" y="28" width="18" height="24" rx="5" fill="currentColor" opacity=".2"/><rect x="12" y="34" width="18" height="18" rx="5" stroke="currentColor" stroke-width="3"/></svg>
-```
-适用：卡片、结构、信息
-
-#### quote-flare · 引言光标
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M20 22c-4.4 2.7-7 7.1-7 12.4C13 42.7 18 48 25 48c6.4 0 11-4.2 11-10.4 0-5.2-3.4-8.7-8.8-8.7-.9 0-1.6.1-2.4.2 1.3-2.2 3.6-4.4 6.2-5.8L20 22Zm20 0c-4.4 2.7-7 7.1-7 12.4C33 42.7 38 48 45 48c6.4 0 11-4.2 11-10.4 0-5.2-3.4-8.7-8.8-8.7-.9 0-1.6.1-2.4.2 1.3-2.2 3.6-4.4 6.2-5.8L40 22Z" fill="currentColor"/></svg>
-```
-适用：引言、金句、观点
-
-#### pulse-grid · 脉冲格网
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M12 18h40M12 32h14l5-9 7 19 5-10h9M12 46h40" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="12" y="12" width="40" height="40" rx="10" stroke="currentColor" stroke-width="3.2"/></svg>
-```
-适用：科技、数据、系统、健康
-
-### 结构信息图（用于 wx-inline-graphic）
-
-#### chart-arc · 弧线增长
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M12 46c8-8 13-20 22-20 5.5 0 7 5 12 5 3.6 0 5.7-2.5 8-6" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M48 18h8v8" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 52h36" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-```
-
-#### bar-stack · 层叠柱形
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M14 50h36" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="18" y="28" width="8" height="18" rx="3" fill="currentColor" opacity=".32"/><rect x="30" y="18" width="8" height="28" rx="3" fill="currentColor"/><rect x="42" y="24" width="8" height="22" rx="3" fill="currentColor" opacity=".65"/></svg>
-```
-
-#### donut-split · 分层环图
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M32 14a18 18 0 0 1 17.4 12.8" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><path d="M49.4 26.8A18 18 0 1 1 21 15.8" stroke="currentColor" stroke-width="8" stroke-linecap="round" opacity=".28"/><circle cx="32" cy="32" r="5" fill="currentColor"/></svg>
-```
-
-#### radar-star · 雷达星图
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="m32 11 16 9v18l-16 9-16-9V20l16-9Z" stroke="currentColor" stroke-width="3"/><path d="m32 18 10 5.8v11.4L32 41l-10-5.8V23.8L32 18Z" fill="currentColor" opacity=".18"/><path d="M32 11v36M16 20l32 18M48 20 16 38" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-```
-
-#### timeline-rail · 时间轨道
-```svg
-<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M15 16v32" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="15" cy="18" r="5" fill="currentColor"/><circle cx="15" cy="32" r="5" fill="currentColor" opacity=".6"/><circle cx="15" cy="46" r="5" fill="currentColor" opacity=".3"/><path d="M28 18h21M28 32h16M28 46h24" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>
-```
-
-### 已弃用的纯装饰图形
-
-以下方向不再作为默认推荐：
-
-- 没有信息职责的全宽波纹 / 星群 / 折带 / 光片
-- 只为“看起来高级”而存在的大块玻璃 SVG
-- 和章节内容没有直接关系的抽象挂件
-
-如果你确实需要一张大图，优先把它做成真正的信息图，而不是装饰板。
-
-#### mesh-wave · 流动曲面
-```svg
-<svg viewBox="0 0 160 64" fill="none" aria-hidden="true"><path d="M6 45c18-28 41-35 66-23 12 5.8 23 12.8 40 12.8 15.4 0 27.2-4.7 42-16.8" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M18 54c21-16 40-18 60-12 15 4.6 33 11 59 4" stroke="currentColor" stroke-width="2.8" opacity=".4" stroke-linecap="round"/></svg>
-```
-
-#### constellation · 星群连线
-```svg
-<svg viewBox="0 0 160 64" fill="none" aria-hidden="true"><path d="M16 46 40 24l28 14 24-22 18 6 20-10 14 20" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="46" r="4" fill="currentColor"/><circle cx="40" cy="24" r="4" fill="currentColor"/><circle cx="68" cy="38" r="4" fill="currentColor"/><circle cx="92" cy="16" r="4" fill="currentColor"/><circle cx="110" cy="22" r="4" fill="currentColor"/><circle cx="130" cy="12" r="4" fill="currentColor"/><circle cx="144" cy="32" r="4" fill="currentColor"/></svg>
-```
-
-#### ribbon-fold · 折页缎带
-```svg
-<svg viewBox="0 0 160 64" fill="none" aria-hidden="true"><path d="M12 20h48l18 12 18-12h52v24H96L78 32 60 44H12V20Z" fill="currentColor" opacity=".16"/><path d="M12 20h48l18 12 18-12h52" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 44h48l18-12 18 12h52" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-```
-
-#### halo-panels · 半透明光片
-```svg
-<svg viewBox="0 0 160 64" fill="none" aria-hidden="true"><rect x="18" y="10" width="44" height="44" rx="14" stroke="currentColor" stroke-width="3"/><rect x="58" y="16" width="44" height="34" rx="12" fill="currentColor" opacity=".16"/><rect x="96" y="8" width="46" height="48" rx="16" stroke="currentColor" stroke-width="3" opacity=".7"/></svg>
-```
-
-#### ink-splash · 墨点扩散
-```svg
-<svg viewBox="0 0 160 64" fill="none" aria-hidden="true"><path d="M36 18c8 0 12 5 12 12 0 6-4 12-11 12-8 0-13-5-13-12 0-7 4-12 12-12Zm46 2c13 0 20 7 20 16 0 10-8 18-20 18-12 0-19-7-19-18 0-9 8-16 19-16Zm42 6c8 0 13 5 13 12 0 8-5 13-13 13-7 0-12-5-12-13 0-7 5-12 12-12Z" fill="currentColor" opacity=".18"/><circle cx="56" cy="24" r="3" fill="currentColor"/><circle cx="114" cy="18" r="3.5" fill="currentColor"/><circle cx="28" cy="42" r="2.5" fill="currentColor"/></svg>
-```
-
-### 分隔线 SVG（用于 wx-divider-ornament）
-
-#### editorial-notch · 极简折点（克制 / 编辑 / 轻资讯主题优先）
-```svg
-<svg viewBox="0 0 220 20" fill="none" aria-hidden="true"><path d="M18 10h78M124 10h78" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".26"/><path d="M110 5.5 114.5 10 110 14.5 105.5 10Z" fill="currentColor" opacity=".5"/></svg>
-```
-
-#### soft-stars · 星点分隔（暖色 / 轻盈主题优先）
-```svg
-<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M6 14h72M142 14h72" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".5"/><path d="m102 7 2.5 5.5L110 15l-5.5 2.5L102 23l-2.5-5.5L94 15l5.5-2.5L102 7Zm16-3 2.2 4.8L125 11l-4.8 2.2L118 18l-2.2-4.8L111 11l4.8-2.2L118 4Z" fill="currentColor"/></svg>
-```
-
-#### chevron-band · 切角分隔（科技 / 结构化主题优先）
-```svg
-<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h66l12-8 12 8 12-8 12 8h90" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-```
-
-#### fold-divider · 折纸分隔（厚重 / 暗色主题优先）
-```svg
-<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M8 14h78l16-8 16 8 16-8 16 8h62" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" opacity=".76"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>
-```
-
-#### line-orbit · 环形分隔（仅少量特殊场景使用，不建议默认）
-```svg
-<svg viewBox="0 0 220 28" fill="none" aria-hidden="true"><path d="M4 14h70M146 14h70" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="110" cy="14" r="10" stroke="currentColor" stroke-width="2.5"/><circle cx="110" cy="14" r="3.5" fill="currentColor"/></svg>
-```
-
-### 印章 SVG（用于 wx-badge-art）
-
-#### tag-stamp · 标签印章
-```svg
-<svg viewBox="0 0 120 64" fill="none" aria-hidden="true"><path d="M12 18a10 10 0 0 1 10-10h44l24 24-24 24H22A10 10 0 0 1 12 46V18Z" stroke="currentColor" stroke-width="3"/><circle cx="30" cy="20" r="5" fill="currentColor"/></svg>
-```
-
-#### seal-round · 圆章封签
-```svg
-<svg viewBox="0 0 120 64" fill="none" aria-hidden="true"><circle cx="32" cy="32" r="18" stroke="currentColor" stroke-width="3.2"/><circle cx="32" cy="32" r="7" fill="currentColor"/><path d="M62 20h42M62 32h34M62 44h46" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-```
-
-#### side-ticket · 票据侧签
-```svg
-<svg viewBox="0 0 120 64" fill="none" aria-hidden="true"><path d="M16 14h72a8 8 0 0 1 8 8v4a6 6 0 0 0 0 12v4a8 8 0 0 1-8 8H16a8 8 0 0 1-8-8V22a8 8 0 0 1 8-8Z" stroke="currentColor" stroke-width="3"/><path d="M34 24h36M34 32h28M34 40h42" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-```
-
-#### bookmark-chip · 书签芯片
-```svg
-<svg viewBox="0 0 120 64" fill="none" aria-hidden="true"><path d="M18 12h34a8 8 0 0 1 8 8v30l-25-10-25 10V20a8 8 0 0 1 8-8Z" fill="currentColor" opacity=".18"/><path d="M18 12h34a8 8 0 0 1 8 8v30l-25-10-25 10V20a8 8 0 0 1 8-8Z" stroke="currentColor" stroke-width="3"/><path d="M72 22h34M72 34h26M72 46h38" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-```
-
----
-
-## 排版建议
-
-1. **字号已为手机优化**：正文 17px、标题 28-38px，无需手动调整
-2. **每段不超过 4 行**：手机上长段会形成文字墙，应拆分
-3. **列表优于长段**：要点用 ul/li 比 p 更易读
-4. **适度使用分隔线**：一篇文章 0-2 个 divider 即可；资讯页默认尽量不用
-5. **图标选择**：根据章节内容从内置 SVG 库中选最合适的，或自行设计 SVG（使用 `currentColor`）
-6. **图片策略**：已有真实图片时优先直接插入原生 `<img>`；只有明确需要后补图片时才使用 `wx-image-drop-zone`
-7. **禁止 Emoji**：不要在任何地方使用 Emoji 字符（🚀✨💡📊❌✅ 等），所有图标必须用 SVG
-8. **每个带 `wx-section-top` 的 section-card 必须遵守统一的章节标题系统**：阅读型页面默认使用 `wx-section-index + wx-card-caption + h2 + wx-section-mark`；只有 `icon-led` / `dual` 才需要显式输出 `wx-section-icon`；像 summary / quote 这类信息卡不必强行补章节头，但禁止使用无语义的占位 SVG
+- 阅读型交付页默认不要用它。
+- 最终交付页优先使用原生图片块。

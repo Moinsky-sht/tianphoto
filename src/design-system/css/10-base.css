@@ -1,0 +1,225 @@
+/* ============================================================
+   .article-theme — 核心排版
+
+   正文: 17px, line-height 1.85
+   标题: 仅设 font-family + line-height 基线，大小自由
+   ============================================================ */
+
+.article-theme {
+  color: var(--text-main);
+  font-family: var(--body-font);
+  font-size: 17px;
+  line-height: 1.85;
+  letter-spacing: -0.008em;
+  --tp-hero-radius: var(--card-radius);
+  --tp-section-radius: var(--card-radius);
+  --tp-icon-radius: var(--icon-radius);
+  --tp-graphic-radius: calc(var(--card-radius) - 2px);
+  --tp-section-top-gap: 12px;
+  --tp-section-heading-gap: 12px;
+  --tp-section-heading-padding: 0;
+  --tp-section-heading-radius: 0;
+  --tp-section-heading-border: none;
+  --tp-section-heading-bg: transparent;
+  --tp-section-heading-shadow: none;
+  --tp-section-copy-gap: 6px;
+  --tp-section-icon-size: 44px;
+  --tp-section-icon-svg-size: 28px;
+  --tp-title-width: none;
+  --tp-title-align: left;
+  --tp-title-line-height: 1.2;
+  --tp-title-spacing: -0.045em;
+  --tp-title-shadow: none;
+  --tp-hero-mesh-height: 160px;
+  --tp-hero-mesh-opacity: var(--mesh-opacity);
+  --tp-hero-mesh-transform: none;
+  --tp-hero-mesh-filter: none;
+  --tp-caption-radius: 999px;
+  --tp-caption-transform: none;
+  --tp-caption-letter-spacing: 0.06em;
+  --tp-mark-size: 32px;
+  --tp-mark-radius: 12px;
+  --tp-mark-border: 1px solid rgba(74, 112, 150, 0.14);
+  --tp-mark-bg: rgba(255, 255, 255, 0.76);
+  --tp-mark-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 8px 18px rgba(70, 104, 140, 0.08);
+  --tp-mark-opacity: 0.82;
+  --tp-icon-svg-transform: none;
+  --tp-icon-svg-filter: none;
+  --tp-divider-transform: none;
+  --tp-divider-filter: none;
+  --tp-graphic-filter: none;
+  --tp-title-floor: 12.8ch;
+  --tp-lead-width: 26ch;
+  --tp-graphic-overlay: none;
+  --tp-svg-stroke: 2px;
+  --tp-svg-panel-opacity: 0.14;
+  --tp-svg-frame-opacity: 0.55;
+  --tp-svg-orb-opacity: 0.24;
+  --tp-svg-line-primary-opacity: 0.52;
+  --tp-svg-line-secondary-opacity: 0.3;
+  --tp-svg-panel-transform: none;
+  --tp-svg-frame-transform: none;
+  --tp-svg-orb-transform: none;
+  --tp-svg-line-transform: none;
+  --tp-svg-filter: none;
+  --tp-inline-graphic-margin-y: 16px;
+  --tp-inline-graphic-min-height: 132px;
+  --tp-inline-graphic-max-width: 100%;
+  --tp-divider-opacity: 0.74;
+  --tp-divider-margin-top: 4px;
+}
+
+.article-theme[data-page-tone="event-notice"] {
+  --tp-title-width: 15.6ch;
+  --tp-title-floor: 15.2ch;
+  --tp-lead-width: 34ch;
+  --tp-title-line-height: 1.08;
+  --tp-title-spacing: -0.026em;
+  --tp-hero-mesh-height: 176px;
+  --tp-section-top-gap: 14px;
+  --tp-mark-size: 34px;
+  --tp-mark-radius: 12px;
+  --tp-mark-border: 1px solid rgba(75, 126, 188, 0.2);
+  --tp-mark-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 247, 255, 0.82));
+  --tp-mark-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 22px rgba(74, 112, 150, 0.1);
+  --tp-mark-opacity: 0.9;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-hero-card {
+  padding: 34px 30px 30px;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-hero-card h1 {
+  max-width: 100%;
+  text-wrap: normal;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-hero-card .wx-lead {
+  max-width: 100%;
+  text-wrap: pretty;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-section-top {
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-bottom: 18px;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-section-heading {
+  padding: 16px 18px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(248, 252, 255, 0.9)),
+    linear-gradient(90deg, rgba(77, 134, 216, 0.04), transparent 28%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.66),
+    0 10px 22px rgba(74, 112, 150, 0.08);
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-section-heading .wx-card-caption {
+  margin-bottom: 8px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-section-icon {
+  display: none;
+}
+
+.article-theme[data-page-tone="event-notice"] .wx-section-index {
+  min-width: auto;
+  height: auto;
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.article-theme[data-page-tone="event-notice"] h2 {
+  font-size: 30px;
+  line-height: 1.14;
+  letter-spacing: -0.04em;
+}
+
+.article-theme .wx-article-shell {
+  display: grid;
+  gap: 22px;
+}
+
+
+/* ============================================================
+   表格
+   ============================================================ */
+
+.article-theme table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 14px 0;
+  border-radius: calc(var(--card-radius) - 10px);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 24px rgba(42, 28, 19, 0.06);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.article-theme thead { background: var(--accent-soft); }
+
+.article-theme thead th {
+  padding: 12px 14px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  text-align: left;
+  border-bottom: 2px solid var(--accent-soft);
+}
+
+.article-theme tbody td {
+  padding: 11px 14px;
+  color: var(--text-main);
+  border-bottom: 1px solid rgba(120, 90, 70, 0.08);
+}
+
+.article-theme tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.article-theme tbody tr:last-child td { border-bottom: none; }
+
+/* 暗色表格 */
+.article-theme.style-skin-neon table,
+.article-theme.style-skin-luxe-dark table,
+.article-theme.style-skin-mono-dark table {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.article-theme.style-skin-neon thead,
+.article-theme.style-skin-luxe-dark thead,
+.article-theme.style-skin-mono-dark thead {
+  background: var(--accent-soft);
+  opacity: 0.92;
+}
+
+.article-theme.style-skin-neon tbody td,
+.article-theme.style-skin-luxe-dark tbody td,
+.article-theme.style-skin-mono-dark tbody td {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.article-theme.style-skin-neon tbody tr:nth-child(even),
+.article-theme.style-skin-luxe-dark tbody tr:nth-child(even),
+.article-theme.style-skin-mono-dark tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
